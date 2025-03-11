@@ -33,7 +33,7 @@
     --input: 220 13% 91%;  /* Changed to grey */
     --ring: 40 67% 56%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;  /* Reduced from 0.75rem to 0.5rem */
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222.2 84% 4.9%;
