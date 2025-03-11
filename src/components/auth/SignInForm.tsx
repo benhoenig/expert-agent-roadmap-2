@@ -4,36 +4,25 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { xanoService } from "@/services/xanoService";
 
-export function SignUpForm() {
+export function SignInForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    role: "Mentor",
     username: "",
-    nickname: "",
-    full_name: ""
+    password: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    if (name === "email") {
-      setFormData(prev => ({ ...prev, username: value }));
-    }
-  };
-
-  const handleRoleChange = (value: string) => {
-    setFormData(prev => ({ ...prev, role: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,37 +31,54 @@ export function SignUpForm() {
     setError(null);
     
     try {
-      const xanoData = {
-        username: formData.email,
-        email: formData.email,
+      // For login, we use username field but it's actually the email
+      const credentials = {
+        username: formData.username,
         password: formData.password,
-        nickname: formData.email.split('@')[0],
-        full_name: formData.email.split('@')[0],
-        role: formData.role
       };
       
-      console.log("Sending signup data:", xanoData);
-      
-      const response = await xanoService.signup(xanoData);
-      console.log("Signup response:", response);
+      const response = await xanoService.login(credentials);
       
       // Validate that we received a proper response with an auth token
       if (!response.authToken) {
         throw new Error("Invalid response from server: Missing authentication token");
       }
       
-      toast.success("Account created successfully!");
-      
-      if (formData.role === "Sales") {
-        navigate("/sales");
-      } else if (formData.role === "Mentor") {
-        navigate("/mentor");
+      // If "Remember Me" is checked, store in localStorage, otherwise in sessionStorage
+      if (rememberMe) {
+        localStorage.setItem("xano_token", response.authToken);
       } else {
+        // Use sessionStorage which is cleared when the browser session ends
+        sessionStorage.setItem("xano_token", response.authToken);
+        // Remove from localStorage if it exists there
+        localStorage.removeItem("xano_token");
+      }
+      
+      toast.success("Signed in successfully!");
+      
+      // Get user data to determine role
+      try {
+        // Attempt to get user data
+        const userData = await xanoService.getUserData();
+        console.log("User data after login:", userData);
+        
+        // Navigate based on user role
+        if (userData.role === "Sales") {
+          navigate("/sales");
+        } else if (userData.role === "Mentor") {
+          navigate("/mentor");
+        } else {
+          // Default to dashboard (admin)
+          navigate("/dashboard");
+        }
+      } catch (userDataErr) {
+        console.error("Failed to get user data:", userDataErr);
+        // If we can't get user data, default to dashboard
         navigate("/dashboard");
       }
     } catch (err: any) {
-      console.error("Signup error:", err);
-      const errorMessage = err.response?.data?.message || "Failed to create account. Please try again.";
+      console.error("Login error:", err);
+      const errorMessage = err.response?.data?.message || "Failed to sign in. Please check your credentials.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -93,18 +99,18 @@ export function SignUpForm() {
       className="space-y-4"
     >
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-sm font-medium">
+        <Label htmlFor="username" className="text-sm font-medium">
           Email
         </Label>
         <Input
-          id="email"
-          name="email"
+          id="username"
+          name="username"
           type="email"
           placeholder="you@example.com"
           autoComplete="email"
           required
           className="w-full border-gray-200 focus-within:border-gray-300 transition-all"
-          value={formData.email}
+          value={formData.username}
           onChange={handleChange}
         />
       </div>
@@ -119,7 +125,7 @@ export function SignUpForm() {
             name="password"
             type={showPassword ? "text" : "password"}
             placeholder="••••••••"
-            autoComplete="new-password"
+            autoComplete="current-password"
             required
             className="w-full border-gray-200 focus-within:border-gray-300 transition-all pr-10"
             value={formData.password}
@@ -139,29 +145,15 @@ export function SignUpForm() {
         </div>
       </div>
       
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">
-          Select Role
+      <div className="flex items-center space-x-2">
+        <Checkbox 
+          id="remember-me" 
+          checked={rememberMe} 
+          onCheckedChange={(checked) => setRememberMe(checked === true)}
+        />
+        <Label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer">
+          Keep me signed in
         </Label>
-        <RadioGroup 
-          defaultValue="Mentor" 
-          className="flex space-x-2"
-          value={formData.role}
-          onValueChange={handleRoleChange}
-        >
-          <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Admin" id="admin" className="border-gray-300 text-gold-500" />
-            <Label htmlFor="admin" className="text-sm">Admin</Label>
-          </div>
-          <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Mentor" id="mentor" className="border-gray-300 text-gold-500" />
-            <Label htmlFor="mentor" className="text-sm">Mentor</Label>
-          </div>
-          <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Sales" id="sales" className="border-gray-300 text-gold-500" />
-            <Label htmlFor="sales" className="text-sm">Sales</Label>
-          </div>
-        </RadioGroup>
       </div>
       
       {error && (
@@ -178,16 +170,12 @@ export function SignUpForm() {
         {isLoading ? (
           <>
             <Loader2 size={16} className="animate-spin mr-2" />
-            Creating Account...
+            Signing In...
           </>
         ) : (
-          "Create Account"
+          "Sign In"
         )}
       </Button>
-      
-      <p className="text-center text-xs text-muted-foreground mt-4">
-        By signing up, you agree to our Terms of Service and Privacy Policy.
-      </p>
     </motion.form>
   );
-}
+} 

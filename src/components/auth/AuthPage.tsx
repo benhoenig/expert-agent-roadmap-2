@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { SignUpForm } from "./SignUpForm";
+import { SignInForm } from "./SignInForm";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,9 @@ export function AuthPage() {
                 <span className="text-gradient">Expert Agent Roadmap</span>
               </h1>
               <p className="text-sm text-muted-foreground">
-                Sign up to get started with your account
+                {formState === "signup" 
+                  ? "Sign up to get started with your account" 
+                  : "Sign in to access your account"}
               </p>
             </div>
             
@@ -58,7 +60,7 @@ export function AuthPage() {
             </div>
             
             {/* Form component */}
-            <SignUpForm />
+            {formState === "signup" ? <SignUpForm /> : <SignInForm />}
           </div>
         </div>
       </motion.div>
