@@ -65,7 +65,7 @@ export function SignUpForm() {
           placeholder="you@example.com"
           autoComplete="email"
           required
-          className="w-full border-gold-100 focus-within:border-gold-300 transition-all"
+          className="w-full border-gray-200 focus-within:border-gray-300 transition-all"
           value={formData.email}
           onChange={handleChange}
         />
@@ -83,7 +83,7 @@ export function SignUpForm() {
             placeholder="••••••••"
             autoComplete="new-password"
             required
-            className="w-full border-gold-100 focus-within:border-gold-300 transition-all pr-10"
+            className="w-full border-gray-200 focus-within:border-gray-300 transition-all pr-10"
             value={formData.password}
             onChange={handleChange}
           />
@@ -112,15 +112,15 @@ export function SignUpForm() {
           onValueChange={handleRoleChange}
         >
           <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Admin" id="admin" className="border-gold-200 text-gold-500" />
+            <RadioGroupItem value="Admin" id="admin" className="border-gray-300 text-gold-500" />
             <Label htmlFor="admin" className="text-sm">Admin</Label>
           </div>
           <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Mentor" id="mentor" className="border-gold-200 text-gold-500" />
+            <RadioGroupItem value="Mentor" id="mentor" className="border-gray-300 text-gold-500" />
             <Label htmlFor="mentor" className="text-sm">Mentor</Label>
           </div>
           <div className="flex items-center space-x-1">
-            <RadioGroupItem value="Sales" id="sales" className="border-gold-200 text-gold-500" />
+            <RadioGroupItem value="Sales" id="sales" className="border-gray-300 text-gold-500" />
             <Label htmlFor="sales" className="text-sm">Sales</Label>
           </div>
         </RadioGroup>

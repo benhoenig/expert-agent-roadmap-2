@@ -15,7 +15,7 @@ export function AuthPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md"
       >
-        <div className="relative overflow-hidden bg-white rounded-2xl shadow-xl border border-gold-100">
+        <div className="relative overflow-hidden bg-white rounded-2xl shadow-xl border border-gray-100">
           {/* Decorative elements */}
           <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full bg-gold-200/50 blur-3xl" />
           <div className="absolute -bottom-16 -left-16 w-32 h-32 rounded-full bg-gold-100/50 blur-2xl" />
