@@ -9,6 +9,12 @@ import { DashboardLayout } from "./components/dashboard/Layout";
 import { UserDashboard } from "./components/dashboard/Pages/User";
 import { MasterData } from "./components/dashboard/Pages/MasterData";
 import { Content } from "./components/dashboard/Pages/Content";
+import { SalesLayout } from "./components/sales/SalesLayout";
+import { SalesRoadmap } from "./components/sales/Pages/Roadmap";
+import { SalesProgress } from "./components/sales/Pages/Progress";
+import { SalesRanking } from "./components/sales/Pages/Ranking";
+import { SalesInformation } from "./components/sales/Pages/Information";
+import { SalesSettings } from "./components/sales/Pages/Settings";
 import NotFound from "./pages/NotFound";
 import { AnimatePresence } from "framer-motion";
 
@@ -24,11 +30,20 @@ const App = () => (
           {/* Auth routes */}
           <Route path="/" element={<AuthPage />} />
           
-          {/* Dashboard routes */}
+          {/* Dashboard routes - Admin */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<UserDashboard />} />
             <Route path="master-data" element={<MasterData />} />
             <Route path="content" element={<Content />} />
+          </Route>
+          
+          {/* Sales routes */}
+          <Route path="/sales" element={<SalesLayout />}>
+            <Route index element={<SalesRoadmap />} />
+            <Route path="progress" element={<SalesProgress />} />
+            <Route path="ranking" element={<SalesRanking />} />
+            <Route path="information" element={<SalesInformation />} />
+            <Route path="settings" element={<SalesSettings />} />
           </Route>
           
           {/* 404 Route */}

@@ -38,8 +38,12 @@ export function SignUpForm() {
     // Success toast notification
     toast.success("Account created successfully!");
     
-    // Navigate to the dashboard
-    navigate("/dashboard");
+    // Navigate based on role
+    if (formData.role === "Sales") {
+      navigate("/sales");
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   const togglePasswordVisibility = () => {
