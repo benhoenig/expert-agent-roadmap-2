@@ -15,8 +15,11 @@ import { SalesProgress } from "./components/sales/Pages/Progress";
 import { SalesRanking } from "./components/sales/Pages/Ranking";
 import { SalesInformation } from "./components/sales/Pages/Information";
 import { SalesSettings } from "./components/sales/Pages/Settings";
+import { MentorLayout } from "./components/mentor/MentorLayout";
+import { MentorMySales } from "./components/mentor/Pages/MySales";
+import { MentorGoals } from "./components/mentor/Pages/Goals";
+import { MentorAllSales } from "./components/mentor/Pages/AllSales";
 import NotFound from "./pages/NotFound";
-import { AnimatePresence } from "framer-motion";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,13 @@ const App = () => (
             <Route path="ranking" element={<SalesRanking />} />
             <Route path="information" element={<SalesInformation />} />
             <Route path="settings" element={<SalesSettings />} />
+          </Route>
+          
+          {/* Mentor routes */}
+          <Route path="/mentor" element={<MentorLayout />}>
+            <Route index element={<MentorMySales />} />
+            <Route path="goals" element={<MentorGoals />} />
+            <Route path="all-sales" element={<MentorAllSales />} />
           </Route>
           
           {/* 404 Route */}

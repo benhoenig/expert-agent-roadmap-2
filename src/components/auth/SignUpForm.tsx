@@ -41,6 +41,8 @@ export function SignUpForm() {
     // Navigate based on role
     if (formData.role === "Sales") {
       navigate("/sales");
+    } else if (formData.role === "Mentor") {
+      navigate("/mentor");
     } else {
       navigate("/dashboard");
     }
