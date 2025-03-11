@@ -78,7 +78,7 @@ export function DashboardLayout() {
             className="flex-1 flex justify-center sm:justify-start ml-2"
           >
             <h1 className="text-lg font-medium tracking-tight text-gradient">
-              Seamless Access Platform
+              Expert Agent Roadmap
             </h1>
           </motion.div>
           

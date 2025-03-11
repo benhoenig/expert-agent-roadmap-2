@@ -24,7 +24,7 @@ export function AuthPage() {
             {/* Logo/Branding */}
             <div className="text-center mb-6">
               <h1 className="text-2xl font-semibold tracking-tight mb-1">
-                <span className="text-gradient">Seamless Access</span>
+                <span className="text-gradient">Expert Agent Roadmap</span>
               </h1>
               <p className="text-sm text-muted-foreground">
                 Sign up to get started with your account

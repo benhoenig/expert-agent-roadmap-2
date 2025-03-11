@@ -47,9 +47,9 @@ export function Sidebar({ closeSidebar }: SidebarProps) {
       <div className="px-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center">
-            <span className="text-white font-semibold text-sm">SA</span>
+            <span className="text-white font-semibold text-sm">EA</span>
           </div>
-          <span className="font-medium text-sm">Seamless Access</span>
+          <span className="font-medium text-sm">Expert Agent</span>
         </div>
         
         {isMobile && (
