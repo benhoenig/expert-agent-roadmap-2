@@ -4,16 +4,14 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SalesSidebar } from "./SalesSidebar";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, LogOut } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { toast } from "sonner";
 
 export function SalesLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isMobile = useIsMobile();
   const location = useLocation();
-  const navigate = useNavigate();
   
   // Auto-close sidebar on mobile when location changes
   useEffect(() => {
@@ -29,11 +27,6 @@ export function SalesLayout() {
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
-  };
-
-  const handleLogout = () => {
-    toast.success("Logged out successfully");
-    navigate("/");
   };
 
   return (
@@ -88,18 +81,6 @@ export function SalesLayout() {
               Sales Dashboard
             </h1>
           </motion.div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="flex items-center gap-1 text-muted-foreground hover:text-destructive"
-            >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
-          </div>
         </header>
         
         {/* Main content area */}
