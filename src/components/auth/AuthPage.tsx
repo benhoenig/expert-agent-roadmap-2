@@ -8,7 +8,7 @@ export function AuthPage() {
   const [formState, setFormState] = useState<"signup" | "signin">("signup");
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-white to-gold-50">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-white">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
