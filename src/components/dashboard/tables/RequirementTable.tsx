@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import { BaseTable, BaseItem } from './BaseTable';
-import { Badge } from '../../ui/badge';
 import { useToast } from '../../ui/use-toast';
 
 interface Requirement extends BaseItem {
-  name: string;
-  category: string;
-  threshold: number;
-  rank: string;
-  status: 'Active' | 'Inactive';
+  id: number;
+  created_at: string;
+  requirement_name: string;
 }
 
 interface RequirementTableProps {
@@ -20,17 +17,12 @@ export function RequirementTable({ isLoading }: RequirementTableProps) {
   const [items, setItems] = useState<Requirement[]>([]);
 
   const columns = [
-    { header: 'Name', accessor: 'name' as keyof Requirement },
-    { header: 'Category', accessor: 'category' as keyof Requirement },
-    { header: 'Threshold', accessor: 'threshold' as keyof Requirement },
-    { header: 'Rank', accessor: 'rank' as keyof Requirement },
+    { header: 'Requirement Name', accessor: 'requirement_name' as keyof Requirement },
     { 
-      header: 'Status', 
-      accessor: 'status' as keyof Requirement,
+      header: 'Created At', 
+      accessor: 'created_at' as keyof Requirement,
       cell: (item: Requirement) => (
-        <Badge variant={item.status === 'Active' ? 'default' : 'secondary'}>
-          {item.status}
-        </Badge>
+        <span>{new Date(item.created_at).toLocaleDateString()}</span>
       )
     },
   ];
@@ -38,14 +30,14 @@ export function RequirementTable({ isLoading }: RequirementTableProps) {
   const handleEdit = (item: Requirement) => {
     toast({
       title: 'Edit Requirement',
-      description: `Editing ${item.name}`,
+      description: `Editing ${item.requirement_name}`,
     });
   };
 
   const handleDelete = (item: Requirement) => {
     toast({
       title: 'Delete Requirement',
-      description: `Are you sure you want to delete ${item.name}?`,
+      description: `Are you sure you want to delete ${item.requirement_name}?`,
       variant: 'destructive',
     });
   };
@@ -53,7 +45,7 @@ export function RequirementTable({ isLoading }: RequirementTableProps) {
   const handleView = (item: Requirement) => {
     toast({
       title: 'View Requirement',
-      description: `Viewing details for ${item.name}`,
+      description: `Viewing details for ${item.requirement_name}`,
     });
   };
 

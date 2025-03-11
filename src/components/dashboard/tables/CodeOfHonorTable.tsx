@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { BaseTable, BaseItem } from './BaseTable';
-import { Badge } from '../../ui/badge';
 import { useToast } from '../../ui/use-toast';
 
 interface CodeOfHonor extends BaseItem {
-  name: string;
-  category: string;
-  description: string;
-  status: 'Active' | 'Inactive';
+  id: number;
+  created_at: string;
+  code_of_honor_name: string;
+  explanation: string;
 }
 
 interface CodeOfHonorTableProps {
@@ -19,24 +18,21 @@ export function CodeOfHonorTable({ isLoading }: CodeOfHonorTableProps) {
   const [items, setItems] = useState<CodeOfHonor[]>([]);
 
   const columns = [
-    { header: 'Name', accessor: 'name' as keyof CodeOfHonor },
-    { header: 'Category', accessor: 'category' as keyof CodeOfHonor },
+    { header: 'Code of Honor Name', accessor: 'code_of_honor_name' as keyof CodeOfHonor },
     { 
-      header: 'Description', 
-      accessor: 'description' as keyof CodeOfHonor,
+      header: 'Explanation', 
+      accessor: 'explanation' as keyof CodeOfHonor,
       cell: (item: CodeOfHonor) => (
-        <div className="max-w-md truncate" title={item.description}>
-          {item.description}
+        <div className="max-w-md truncate" title={item.explanation}>
+          {item.explanation}
         </div>
       )
     },
     { 
-      header: 'Status', 
-      accessor: 'status' as keyof CodeOfHonor,
+      header: 'Created At', 
+      accessor: 'created_at' as keyof CodeOfHonor,
       cell: (item: CodeOfHonor) => (
-        <Badge variant={item.status === 'Active' ? 'default' : 'secondary'}>
-          {item.status}
-        </Badge>
+        <span>{new Date(item.created_at).toLocaleDateString()}</span>
       )
     },
   ];
@@ -44,14 +40,14 @@ export function CodeOfHonorTable({ isLoading }: CodeOfHonorTableProps) {
   const handleEdit = (item: CodeOfHonor) => {
     toast({
       title: 'Edit Code of Honor',
-      description: `Editing ${item.name}`,
+      description: `Editing ${item.code_of_honor_name}`,
     });
   };
 
   const handleDelete = (item: CodeOfHonor) => {
     toast({
       title: 'Delete Code of Honor',
-      description: `Are you sure you want to delete ${item.name}?`,
+      description: `Are you sure you want to delete ${item.code_of_honor_name}?`,
       variant: 'destructive',
     });
   };
@@ -59,7 +55,7 @@ export function CodeOfHonorTable({ isLoading }: CodeOfHonorTableProps) {
   const handleView = (item: CodeOfHonor) => {
     toast({
       title: 'View Code of Honor',
-      description: `Viewing details for ${item.name}`,
+      description: `Viewing details for ${item.code_of_honor_name}`,
     });
   };
 

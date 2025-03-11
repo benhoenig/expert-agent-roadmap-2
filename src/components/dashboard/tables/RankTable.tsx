@@ -4,10 +4,12 @@ import { Badge } from '../../ui/badge';
 import { useToast } from '../../ui/use-toast';
 
 interface Rank extends BaseItem {
-  name: string;
-  level: number;
-  benefits: string;
-  status: 'Active' | 'Inactive';
+  id: number;
+  created_at: string;
+  rank_name: string;
+  rank_level: number;
+  manual_promotion: boolean;
+  time_requirement_months: number;
 }
 
 interface RankTableProps {
@@ -19,24 +21,23 @@ export function RankTable({ isLoading }: RankTableProps) {
   const [items, setItems] = useState<Rank[]>([]);
 
   const columns = [
-    { header: 'Name', accessor: 'name' as keyof Rank },
-    { header: 'Level', accessor: 'level' as keyof Rank },
+    { header: 'Rank Name', accessor: 'rank_name' as keyof Rank },
+    { header: 'Level', accessor: 'rank_level' as keyof Rank },
+    { header: 'Time Requirement (Months)', accessor: 'time_requirement_months' as keyof Rank },
     { 
-      header: 'Benefits', 
-      accessor: 'benefits' as keyof Rank,
+      header: 'Manual Promotion', 
+      accessor: 'manual_promotion' as keyof Rank,
       cell: (item: Rank) => (
-        <div className="max-w-md truncate" title={item.benefits}>
-          {item.benefits}
-        </div>
+        <Badge variant={item.manual_promotion ? 'default' : 'secondary'}>
+          {item.manual_promotion ? 'Yes' : 'No'}
+        </Badge>
       )
     },
     { 
-      header: 'Status', 
-      accessor: 'status' as keyof Rank,
+      header: 'Created At', 
+      accessor: 'created_at' as keyof Rank,
       cell: (item: Rank) => (
-        <Badge variant={item.status === 'Active' ? 'default' : 'secondary'}>
-          {item.status}
-        </Badge>
+        <span>{new Date(item.created_at).toLocaleDateString()}</span>
       )
     },
   ];
@@ -44,14 +45,14 @@ export function RankTable({ isLoading }: RankTableProps) {
   const handleEdit = (item: Rank) => {
     toast({
       title: 'Edit Rank',
-      description: `Editing ${item.name}`,
+      description: `Editing ${item.rank_name}`,
     });
   };
 
   const handleDelete = (item: Rank) => {
     toast({
       title: 'Delete Rank',
-      description: `Are you sure you want to delete ${item.name}?`,
+      description: `Are you sure you want to delete ${item.rank_name}?`,
       variant: 'destructive',
     });
   };
@@ -59,7 +60,7 @@ export function RankTable({ isLoading }: RankTableProps) {
   const handleView = (item: Rank) => {
     toast({
       title: 'View Rank',
-      description: `Viewing details for ${item.name}`,
+      description: `Viewing details for ${item.rank_name}`,
     });
   };
 
