@@ -20,22 +20,20 @@ const App = () => (
       <Toaster />
       <Sonner position="top-right" theme="light" closeButton className="z-[100]" />
       <BrowserRouter>
-        <AnimatePresence mode="wait">
-          <Routes>
-            {/* Auth routes */}
-            <Route path="/" element={<AuthPage />} />
-            
-            {/* Dashboard routes */}
-            <Route path="/dashboard" element={<DashboardLayout />}>
-              <Route index element={<UserDashboard />} />
-              <Route path="master-data" element={<MasterData />} />
-              <Route path="content" element={<Content />} />
-            </Route>
-            
-            {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AnimatePresence>
+        <Routes>
+          {/* Auth routes */}
+          <Route path="/" element={<AuthPage />} />
+          
+          {/* Dashboard routes */}
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<UserDashboard />} />
+            <Route path="master-data" element={<MasterData />} />
+            <Route path="content" element={<Content />} />
+          </Route>
+          
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -89,18 +89,16 @@ export function DashboardLayout() {
         
         {/* Main content area */}
         <main className="flex-1 overflow-x-hidden p-4 lg:p-8 transition-all">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="mx-auto max-w-7xl"
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          {/* Removed AnimatePresence here to prevent duplicate animations */}
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mx-auto max-w-7xl"
+          >
+            <Outlet />
+          </motion.div>
         </main>
       </div>
     </div>
