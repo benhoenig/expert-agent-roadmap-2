@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -8,20 +7,29 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { xanoService } from "@/services/xanoService";
 
 export function SignUpForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    role: "Mentor"
+    role: "Mentor",
+    username: "",
+    nickname: "",
+    full_name: ""
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === "email") {
+      setFormData(prev => ({ ...prev, username: value }));
+    }
   };
 
   const handleRoleChange = (value: string) => {
@@ -31,20 +39,35 @@ export function SignUpForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Success toast notification
-    toast.success("Account created successfully!");
-    
-    // Navigate based on role
-    if (formData.role === "Sales") {
-      navigate("/sales");
-    } else if (formData.role === "Mentor") {
-      navigate("/mentor");
-    } else {
-      navigate("/dashboard");
+    try {
+      const xanoData = {
+        username: formData.email,
+        password: formData.password,
+        nickname: formData.email.split('@')[0],
+        full_name: formData.email.split('@')[0],
+        role: formData.role.toLowerCase()
+      };
+      
+      const response = await xanoService.signup(xanoData);
+      console.log("Signup response:", response);
+      
+      toast.success("Account created successfully!");
+      
+      if (formData.role === "Sales") {
+        navigate("/sales");
+      } else if (formData.role === "Mentor") {
+        navigate("/mentor");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.response?.data?.message || "Failed to create account. Please try again.");
+      toast.error(err.response?.data?.message || "Failed to create account");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -132,6 +155,12 @@ export function SignUpForm() {
         </RadioGroup>
       </div>
       
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+      
       <Button
         type="submit"
         className="w-full bg-gold-500 hover:bg-gold-600 text-white font-medium"
@@ -150,6 +179,42 @@ export function SignUpForm() {
       <p className="text-center text-xs text-muted-foreground mt-4">
         By signing up, you agree to our Terms of Service and Privacy Policy.
       </p>
+      
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 p-4 border border-gray-200 rounded-md bg-gray-50">
+          <h3 className="text-sm font-medium mb-2">Debug Tools</h3>
+          <div className="flex space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const result = await xanoService.testConnection();
+                  console.log("API connection test:", result);
+                  toast.success("API connection test: " + (result.success ? "Success" : "Failed"));
+                } catch (err) {
+                  console.error("API test error:", err);
+                  toast.error("API connection test failed");
+                }
+              }}
+            >
+              Test API Connection
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem("xano_token");
+                toast.success("Auth token cleared");
+              }}
+            >
+              Clear Token
+            </Button>
+          </div>
+        </div>
+      )}
     </motion.form>
   );
 }
