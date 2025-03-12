@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { BaseItem } from "../components/dashboard/tables/BaseTable";
 
 // Xano API configuration
@@ -26,6 +26,33 @@ xanoApi.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Helper function to retry API calls with exponential backoff
+const retryRequest = async (apiCall: () => Promise<any>, maxRetries = 3): Promise<any> => {
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 429) {
+        // Rate limit hit - wait and retry
+        retries++;
+        if (retries >= maxRetries) {
+          throw error; // Max retries reached, rethrow the error
+        }
+        
+        // Calculate exponential backoff delay (1s, 2s, 4s, etc.)
+        const delay = Math.pow(2, retries) * 1000;
+        console.log(`Rate limit hit. Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // Not a rate limit error, rethrow immediately
+        throw error;
+      }
+    }
+  }
+};
 
 export interface RankPromotion extends BaseItem {
   id: number;
@@ -71,7 +98,11 @@ class RankPromotionService {
   async getAllRankPromotions(): Promise<RankPromotion[]> {
     try {
       console.log('Fetching all Rank Promotion Conditions');
-      const response = await xanoApi.get('/ranking_promotion_condition');
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get('/ranking_promotion_condition');
+      });
+      
       console.log('Rank Promotion Conditions fetched successfully:', response.data);
       
       // Map the response to include the name property required by BaseItem
@@ -91,7 +122,11 @@ class RankPromotionService {
   async getRankPromotionById(promotionId: number): Promise<RankPromotion> {
     try {
       console.log(`Fetching Rank Promotion Condition with ID ${promotionId}`);
-      const response = await xanoApi.get(`/ranking_promotion_condition/${promotionId}`);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get(`/ranking_promotion_condition/${promotionId}`);
+      });
+      
       console.log('Rank Promotion Condition fetched successfully:', response.data);
       
       // Add the name property required by BaseItem
@@ -111,7 +146,11 @@ class RankPromotionService {
   async createRankPromotion(promotionData: CreateRankPromotionRequest): Promise<RankPromotion> {
     try {
       console.log('Creating new Rank Promotion Condition with data:', promotionData);
-      const response = await xanoApi.post('/ranking_promotion_condition', promotionData);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.post('/ranking_promotion_condition', promotionData);
+      });
+      
       console.log('Rank Promotion Condition created successfully:', response.data);
       
       // Add the name property required by BaseItem
@@ -133,7 +172,10 @@ class RankPromotionService {
       console.log(`Updating Rank Promotion Condition with ID ${promotionId} with data:`, promotionData);
       console.log(`API endpoint: /ranking_promotion_condition/${promotionId}`);
       
-      const response = await xanoApi.patch(`/ranking_promotion_condition/${promotionId}`, promotionData);
+      const response = await retryRequest(async () => {
+        return await xanoApi.patch(`/ranking_promotion_condition/${promotionId}`, promotionData);
+      });
+      
       console.log('Update Rank Promotion Condition response:', response.data);
       
       // Add the name property required by BaseItem
@@ -154,7 +196,9 @@ class RankPromotionService {
    */
   async deleteRankPromotion(promotionId: number): Promise<void> {
     try {
-      await xanoApi.delete(`/ranking_promotion_condition/${promotionId}`);
+      await retryRequest(async () => {
+        return await xanoApi.delete(`/ranking_promotion_condition/${promotionId}`);
+      });
     } catch (error) {
       console.error(`Error deleting Rank Promotion Condition with ID ${promotionId}:`, error);
       throw error;

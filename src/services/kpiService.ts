@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { BaseItem } from "../components/dashboard/tables/BaseTable";
 
 // Xano API configuration
@@ -27,6 +27,33 @@ xanoApi.interceptors.request.use((config) => {
   return config;
 });
 
+// Helper function to retry API calls with exponential backoff
+const retryRequest = async (apiCall: () => Promise<any>, maxRetries = 3): Promise<any> => {
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 429) {
+        // Rate limit hit - wait and retry
+        retries++;
+        if (retries >= maxRetries) {
+          throw error; // Max retries reached, rethrow the error
+        }
+        
+        // Calculate exponential backoff delay (1s, 2s, 4s, etc.)
+        const delay = Math.pow(2, retries) * 1000;
+        console.log(`Rate limit hit. Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // Not a rate limit error, rethrow immediately
+        throw error;
+      }
+    }
+  }
+};
+
 export interface KPI extends BaseItem {
   id: number;
   created_at: string;
@@ -51,7 +78,11 @@ class KPIService {
   async getAllKPIs(): Promise<KPI[]> {
     try {
       console.log('Fetching all KPIs');
-      const response = await xanoApi.get('/kpi');
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get('/kpi');
+      });
+      
       console.log('KPIs fetched successfully:', response.data);
       // Map the response to include the name property required by BaseItem
       return response.data.map((kpi: any) => ({
@@ -70,7 +101,11 @@ class KPIService {
   async getKPIById(kpiId: number): Promise<KPI> {
     try {
       console.log(`Fetching KPI with ID ${kpiId}`);
-      const response = await xanoApi.get(`/kpi/${kpiId}`);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get(`/kpi/${kpiId}`);
+      });
+      
       console.log('KPI fetched successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -89,7 +124,11 @@ class KPIService {
   async createKPI(kpiData: CreateKPIRequest): Promise<KPI> {
     try {
       console.log('Creating new KPI with data:', kpiData);
-      const response = await xanoApi.post('/kpi', kpiData);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.post('/kpi', kpiData);
+      });
+      
       console.log('KPI created successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -110,7 +149,10 @@ class KPIService {
       console.log(`Updating KPI with ID ${kpiId} with data:`, kpiData);
       console.log(`API endpoint: /kpi/${kpiId}`);
       
-      const response = await xanoApi.patch(`/kpi/${kpiId}`, kpiData);
+      const response = await retryRequest(async () => {
+        return await xanoApi.patch(`/kpi/${kpiId}`, kpiData);
+      });
+      
       console.log('Update KPI response:', response.data);
       
       // Add the name property required by BaseItem
@@ -131,7 +173,9 @@ class KPIService {
    */
   async deleteKPI(kpiId: number): Promise<void> {
     try {
-      await xanoApi.delete(`/kpi/${kpiId}`);
+      await retryRequest(async () => {
+        return await xanoApi.delete(`/kpi/${kpiId}`);
+      });
     } catch (error) {
       console.error(`Error deleting KPI with ID ${kpiId}:`, error);
       throw error;

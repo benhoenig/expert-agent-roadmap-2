@@ -18,6 +18,7 @@ import { CodeOfHonorTable } from "../../dashboard/tables/CodeOfHonorTable";
 import { RankTable } from "../../dashboard/tables/RankTable";
 import { RankPromotionTable } from "../../dashboard/tables/RankPromotionTable";
 import { AddItemModal, TableType } from "../../dashboard/modals/AddItemModal";
+import { BatchRankPromotionModal } from "../../dashboard/modals/BatchRankPromotionModal";
 
 // Import services
 import { kpiService } from "../../../services/kpiService";
@@ -31,6 +32,7 @@ export function MasterData() {
   const [activeTab, setActiveTab] = useState<TableType>("kpi");
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Reference to the table components for refreshing
@@ -47,11 +49,19 @@ export function MasterData() {
   };
 
   const handleAddNew = () => {
-    setIsModalOpen(true);
+    if (activeTab === 'rank-promotion') {
+      setIsBatchModalOpen(true);
+    } else {
+      setIsModalOpen(true);
+    }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleCloseBatchModal = () => {
+    setIsBatchModalOpen(false);
   };
 
   const handleSubmit = async (data: any) => {
@@ -144,6 +154,10 @@ export function MasterData() {
     }
   };
 
+  const handleBatchSuccess = () => {
+    handleRefresh();
+  };
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -214,12 +228,20 @@ export function MasterData() {
         </TabsContent>
       </Tabs>
 
+      {/* Standard Add Item Modal for non-rank-promotion tables */}
       <AddItemModal 
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && activeTab !== 'rank-promotion'}
         onClose={handleCloseModal}
         tableType={activeTab}
         onSubmit={handleSubmit}
         isLoading={isSubmitting}
+      />
+
+      {/* Batch Rank Promotion Modal for rank-promotion table */}
+      <BatchRankPromotionModal
+        isOpen={isBatchModalOpen && activeTab === 'rank-promotion'}
+        onClose={handleCloseBatchModal}
+        onSuccess={handleBatchSuccess}
       />
     </div>
   );

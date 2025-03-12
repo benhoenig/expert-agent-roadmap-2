@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { BaseItem } from "../components/dashboard/tables/BaseTable";
 
 // Xano API configuration
@@ -27,6 +27,33 @@ xanoApi.interceptors.request.use((config) => {
   return config;
 });
 
+// Helper function to retry API calls with exponential backoff
+const retryRequest = async (apiCall: () => Promise<any>, maxRetries = 3): Promise<any> => {
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 429) {
+        // Rate limit hit - wait and retry
+        retries++;
+        if (retries >= maxRetries) {
+          throw error; // Max retries reached, rethrow the error
+        }
+        
+        // Calculate exponential backoff delay (1s, 2s, 4s, etc.)
+        const delay = Math.pow(2, retries) * 1000;
+        console.log(`Rate limit hit. Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // Not a rate limit error, rethrow immediately
+        throw error;
+      }
+    }
+  }
+};
+
 export interface CodeOfHonor extends BaseItem {
   id: number;
   created_at: string;
@@ -51,7 +78,11 @@ class CodeOfHonorService {
   async getAllCodeOfHonors(): Promise<CodeOfHonor[]> {
     try {
       console.log('Fetching all Code of Honors');
-      const response = await xanoApi.get('/code_of_honor');
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get('/code_of_honor');
+      });
+      
       console.log('Code of Honors fetched successfully:', response.data);
       // Map the response to include the name property required by BaseItem
       return response.data.map((codeOfHonor: any) => ({
@@ -70,7 +101,11 @@ class CodeOfHonorService {
   async getCodeOfHonorById(codeOfHonorId: number): Promise<CodeOfHonor> {
     try {
       console.log(`Fetching Code of Honor with ID ${codeOfHonorId}`);
-      const response = await xanoApi.get(`/code_of_honor/${codeOfHonorId}`);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get(`/code_of_honor/${codeOfHonorId}`);
+      });
+      
       console.log('Code of Honor fetched successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -89,7 +124,11 @@ class CodeOfHonorService {
   async createCodeOfHonor(codeOfHonorData: CreateCodeOfHonorRequest): Promise<CodeOfHonor> {
     try {
       console.log('Creating new Code of Honor with data:', codeOfHonorData);
-      const response = await xanoApi.post('/code_of_honor', codeOfHonorData);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.post('/code_of_honor', codeOfHonorData);
+      });
+      
       console.log('Code of Honor created successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -110,7 +149,10 @@ class CodeOfHonorService {
       console.log(`Updating Code of Honor with ID ${codeOfHonorId} with data:`, codeOfHonorData);
       console.log(`API endpoint: /code_of_honor/${codeOfHonorId}`);
       
-      const response = await xanoApi.patch(`/code_of_honor/${codeOfHonorId}`, codeOfHonorData);
+      const response = await retryRequest(async () => {
+        return await xanoApi.patch(`/code_of_honor/${codeOfHonorId}`, codeOfHonorData);
+      });
+      
       console.log('Update Code of Honor response:', response.data);
       
       // Add the name property required by BaseItem
@@ -131,7 +173,9 @@ class CodeOfHonorService {
    */
   async deleteCodeOfHonor(codeOfHonorId: number): Promise<void> {
     try {
-      await xanoApi.delete(`/code_of_honor/${codeOfHonorId}`);
+      await retryRequest(async () => {
+        return await xanoApi.delete(`/code_of_honor/${codeOfHonorId}`);
+      });
     } catch (error) {
       console.error(`Error deleting Code of Honor with ID ${codeOfHonorId}:`, error);
       throw error;

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { BaseItem } from "../components/dashboard/tables/BaseTable";
 
 // Xano API configuration
@@ -27,6 +27,33 @@ xanoApi.interceptors.request.use((config) => {
   return config;
 });
 
+// Helper function to retry API calls with exponential backoff
+const retryRequest = async (apiCall: () => Promise<any>, maxRetries = 3): Promise<any> => {
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 429) {
+        // Rate limit hit - wait and retry
+        retries++;
+        if (retries >= maxRetries) {
+          throw error; // Max retries reached, rethrow the error
+        }
+        
+        // Calculate exponential backoff delay (1s, 2s, 4s, etc.)
+        const delay = Math.pow(2, retries) * 1000;
+        console.log(`Rate limit hit. Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // Not a rate limit error, rethrow immediately
+        throw error;
+      }
+    }
+  }
+};
+
 export interface Requirement extends BaseItem {
   id: number;
   created_at: string;
@@ -48,7 +75,11 @@ class RequirementService {
   async getAllRequirements(): Promise<Requirement[]> {
     try {
       console.log('Fetching all Requirements');
-      const response = await xanoApi.get('/requirement');
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get('/requirement');
+      });
+      
       console.log('Requirements fetched successfully:', response.data);
       // Map the response to include the name property required by BaseItem
       return response.data.map((requirement: any) => ({
@@ -67,7 +98,11 @@ class RequirementService {
   async getRequirementById(requirementId: number): Promise<Requirement> {
     try {
       console.log(`Fetching Requirement with ID ${requirementId}`);
-      const response = await xanoApi.get(`/requirement/${requirementId}`);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.get(`/requirement/${requirementId}`);
+      });
+      
       console.log('Requirement fetched successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -86,7 +121,11 @@ class RequirementService {
   async createRequirement(requirementData: CreateRequirementRequest): Promise<Requirement> {
     try {
       console.log('Creating new Requirement with data:', requirementData);
-      const response = await xanoApi.post('/requirement', requirementData);
+      
+      const response = await retryRequest(async () => {
+        return await xanoApi.post('/requirement', requirementData);
+      });
+      
       console.log('Requirement created successfully:', response.data);
       // Add the name property required by BaseItem
       return {
@@ -107,7 +146,10 @@ class RequirementService {
       console.log(`Updating Requirement with ID ${requirementId} with data:`, requirementData);
       console.log(`API endpoint: /requirement/${requirementId}`);
       
-      const response = await xanoApi.patch(`/requirement/${requirementId}`, requirementData);
+      const response = await retryRequest(async () => {
+        return await xanoApi.patch(`/requirement/${requirementId}`, requirementData);
+      });
+      
       console.log('Update Requirement response:', response.data);
       
       // Add the name property required by BaseItem
@@ -128,7 +170,9 @@ class RequirementService {
    */
   async deleteRequirement(requirementId: number): Promise<void> {
     try {
-      await xanoApi.delete(`/requirement/${requirementId}`);
+      await retryRequest(async () => {
+        return await xanoApi.delete(`/requirement/${requirementId}`);
+      });
     } catch (error) {
       console.error(`Error deleting Requirement with ID ${requirementId}:`, error);
       throw error;
