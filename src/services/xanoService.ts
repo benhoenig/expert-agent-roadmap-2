@@ -137,5 +137,149 @@ export const xanoService = {
         error
       };
     }
-  }
+  },
+  
+  // KPI Progress operations
+  getAllKPIProgress: async () => {
+    try {
+      const response = await xanoApi.get("/kpi_skillset_progress");
+      return response.data;
+    } catch (error) {
+      console.error("Get all KPI progress error:", error);
+      throw error;
+    }
+  },
+  
+  getKPIProgressById: async (id: number) => {
+    try {
+      const response = await xanoApi.get(`/kpi_skillset_progress/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Get KPI progress error:", error);
+      throw error;
+    }
+  },
+  
+  addKPIProgress: async (progressData: {
+    date: Date;
+    kpi_type: string;
+    kpi_name: string;
+    action_count?: number;
+    wording_score?: number;
+    tonality_score?: number;
+    rapport_score?: number;
+    average_score?: number;
+    remark?: string;
+    user_id?: number;
+    attachment?: File;
+  }) => {
+    try {
+      // If there's an attachment, we need to use FormData
+      if (progressData.attachment) {
+        const formData = new FormData();
+        
+        // Add all other fields to the form data
+        Object.entries(progressData).forEach(([key, value]) => {
+          if (key === 'attachment' && value instanceof File) {
+            formData.append('attachment', value);
+          } else if (key === 'date' && value instanceof Date) {
+            formData.append('date', value.toISOString());
+          } else if (value !== undefined) {
+            formData.append(key, String(value));
+          }
+        });
+        
+        const response = await xanoApi.post("/kpi_skillset_progress", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        return response.data;
+      } else {
+        // If no attachment, we can send JSON directly
+        const payload: Record<string, any> = { ...progressData };
+        
+        // Convert date to ISO string
+        if (payload.date instanceof Date) {
+          payload.date = payload.date.toISOString();
+        }
+        
+        // Remove attachment field if it exists
+        delete payload.attachment;
+        
+        const response = await xanoApi.post("/kpi_skillset_progress", payload);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Add KPI progress error:", error);
+      throw error;
+    }
+  },
+  
+  updateKPIProgress: async (id: number, progressData: {
+    date?: Date;
+    kpi_type?: string;
+    kpi_name?: string;
+    action_count?: number;
+    wording_score?: number;
+    tonality_score?: number;
+    rapport_score?: number;
+    average_score?: number;
+    remark?: string;
+    attachment?: File;
+  }) => {
+    try {
+      // If there's an attachment, we need to use FormData
+      if (progressData.attachment) {
+        const formData = new FormData();
+        
+        // Add all other fields to the form data
+        Object.entries(progressData).forEach(([key, value]) => {
+          if (key === 'attachment' && value instanceof File) {
+            formData.append('attachment', value);
+          } else if (key === 'date' && value instanceof Date) {
+            formData.append('date', value.toISOString());
+          } else if (value !== undefined) {
+            formData.append(key, String(value));
+          }
+        });
+        
+        const response = await xanoApi.patch(`/kpi_skillset_progress/${id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        return response.data;
+      } else {
+        // If no attachment, we can send JSON directly
+        const payload: Record<string, any> = { ...progressData };
+        
+        // Convert date to ISO string if it exists
+        if (payload.date instanceof Date) {
+          payload.date = payload.date.toISOString();
+        }
+        
+        // Remove attachment field if it exists
+        delete payload.attachment;
+        
+        const response = await xanoApi.patch(`/kpi_skillset_progress/${id}`, payload);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Update KPI progress error:", error);
+      throw error;
+    }
+  },
+  
+  deleteKPIProgress: async (id: number) => {
+    try {
+      const response = await xanoApi.delete(`/kpi_skillset_progress/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Delete KPI progress error:", error);
+      throw error;
+    }
+  },
 }; 

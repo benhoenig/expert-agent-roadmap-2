@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Loader2, PaperclipIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { xanoService } from "@/services/xanoService";
 
 interface KPIFormProps {
   onCancel: () => void;
@@ -30,9 +31,27 @@ export function KPIForm({ onCancel, onSubmit }: KPIFormProps) {
   const [remark, setRemark] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
 
   const actionKPIs = ["New List", "Consult", "Owner Visit"];
   const skillsetKPIs = ["Basic Script", "Consulting Script", "Buyer Script"];
+
+  // Fetch current user data on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userData = await xanoService.getUserData();
+        if (userData && userData.id) {
+          setUserId(userData.id);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        // Don't show an error toast here as it's not critical for the form
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Calculate average score whenever sub-metric scores change
   useEffect(() => {
@@ -97,15 +116,62 @@ export function KPIForm({ onCancel, onSubmit }: KPIFormProps) {
     setIsSubmitting(true);
     
     try {
-      // This is where we would normally send the data to the API
-      // For now, we'll just simulate a successful submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare the progress data based on KPI type
+      const progressData: any = {
+        date: date,
+        kpi_type: kpiType,
+        kpi_name: kpiName,
+        remark: remark || "",
+        user_id: userId || undefined,
+      };
+
+      // Add type-specific fields
+      if (kpiType === "Action") {
+        progressData.action_count = actionCount;
+      } else if (kpiType === "Skillset") {
+        progressData.wording_score = wordingScore;
+        progressData.tonality_score = tonalityScore;
+        progressData.rapport_score = rapportScore;
+        progressData.average_score = averageScore;
+      }
+
+      // Add attachment if exists
+      if (file) {
+        progressData.attachment = file;
+      }
+
+      // Send the data to the API
+      await xanoService.addKPIProgress(progressData);
       
       toast.success("KPI progress added successfully");
       onSubmit();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting KPI progress:", error);
-      toast.error("Failed to add KPI progress");
+      
+      // Provide more specific error messages based on the error
+      let errorMessage = "Failed to add KPI progress";
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.status === 500) {
+          errorMessage = "Server error. Please try again later.";
+        } else if (error.response.status === 400) {
+          errorMessage = "Invalid data. Please check your inputs.";
+          if (error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+        } else if (error.response.status === 401 || error.response.status === 403) {
+          errorMessage = "You are not authorized to perform this action.";
+        } else if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = "No response from server. Please check your internet connection.";
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -265,7 +331,7 @@ export function KPIForm({ onCancel, onSubmit }: KPIFormProps) {
       {/* File Attachment */}
       <div className="space-y-2">
         <Label htmlFor="attachment">Attachment (Optional)</Label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             id="attachment"
             type="file"
@@ -279,12 +345,14 @@ export function KPIForm({ onCancel, onSubmit }: KPIFormProps) {
             className="flex items-center gap-2"
           >
             <PaperclipIcon size={16} />
-            {file ? file.name : "Add Attachment"}
+            {file ? "Change Attachment" : "Add Attachment"}
           </Button>
           {file && (
-            <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-              {file.name}
-            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-muted-foreground truncate">
+                {file.name}
+              </p>
+            </div>
           )}
         </div>
       </div>
