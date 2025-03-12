@@ -31,6 +31,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2 } from "lucide-react";
+import { rankService, Rank } from '../../../services/rankService';
+import { kpiService, KPI } from '../../../services/kpiService';
+import { requirementService, Requirement } from '../../../services/requirementService';
 
 // Define the table types
 export type TableType = 'kpi' | 'requirement' | 'code-of-honor' | 'rank' | 'rank-promotion';
@@ -83,6 +86,39 @@ const rankPromotionSchema = z.object({
 });
 
 export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }: AddItemModalProps) {
+  // State for dropdown options
+  const [ranks, setRanks] = useState<Rank[]>([]);
+  const [kpis, setKpis] = useState<KPI[]>([]);
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+
+  // Fetch dropdown options when the modal opens for rank-promotion
+  useEffect(() => {
+    if (isOpen && tableType === 'rank-promotion') {
+      fetchDropdownOptions();
+    }
+  }, [isOpen, tableType]);
+
+  // Fetch dropdown options from the API
+  const fetchDropdownOptions = async () => {
+    setIsLoadingOptions(true);
+    try {
+      const [ranksData, kpisData, requirementsData] = await Promise.all([
+        rankService.getAllRanks(),
+        kpiService.getAllKPIs(),
+        requirementService.getAllRequirements()
+      ]);
+      
+      setRanks(ranksData);
+      setKpis(kpisData);
+      setRequirements(requirementsData);
+    } catch (error: any) {
+      console.error('Error fetching dropdown options:', error);
+    } finally {
+      setIsLoadingOptions(false);
+    }
+  };
+
   // Get the appropriate schema based on the table type
   const getSchema = () => {
     switch (tableType) {
@@ -317,6 +353,7 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))} 
                     defaultValue={field.value?.toString()}
+                    disabled={isLoadingOptions}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -324,9 +361,15 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="1">Rookie</SelectItem>
-                      <SelectItem value="2">Junior Agent</SelectItem>
-                      <SelectItem value="3">Senior Agent</SelectItem>
+                      {ranks.length > 0 ? (
+                        ranks.map((rank) => (
+                          <SelectItem key={rank.id} value={rank.id.toString()}>
+                            {rank.rank_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="0" disabled>Loading ranks...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -342,6 +385,7 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))} 
                     defaultValue={field.value?.toString()}
+                    disabled={isLoadingOptions}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -349,9 +393,15 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="1">Sales Calls</SelectItem>
-                      <SelectItem value="2">Property Viewings</SelectItem>
-                      <SelectItem value="3">Contracts Signed</SelectItem>
+                      {kpis.length > 0 ? (
+                        kpis.map((kpi) => (
+                          <SelectItem key={kpi.id} value={kpi.id.toString()}>
+                            {kpi.kpi_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="0" disabled>Loading KPIs...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -367,6 +417,7 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))} 
                     defaultValue={field.value?.toString()}
+                    disabled={isLoadingOptions}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -374,9 +425,15 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="1">Monthly Target</SelectItem>
-                      <SelectItem value="2">Quarterly Target</SelectItem>
-                      <SelectItem value="3">Annual Target</SelectItem>
+                      {requirements.length > 0 ? (
+                        requirements.map((requirement) => (
+                          <SelectItem key={requirement.id} value={requirement.id.toString()}>
+                            {requirement.requirement_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="0" disabled>Loading requirements...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

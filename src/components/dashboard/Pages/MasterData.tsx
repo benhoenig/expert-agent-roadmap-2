@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Plus, RefreshCw, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 // Import the table components
 import { KPITable } from "../../dashboard/tables/KPITable";
@@ -18,15 +19,28 @@ import { RankTable } from "../../dashboard/tables/RankTable";
 import { RankPromotionTable } from "../../dashboard/tables/RankPromotionTable";
 import { AddItemModal, TableType } from "../../dashboard/modals/AddItemModal";
 
+// Import services
+import { kpiService } from "../../../services/kpiService";
+import { requirementService } from "../../../services/requirementService";
+import { codeOfHonorService } from "../../../services/codeOfHonorService";
+import { rankService } from "../../../services/rankService";
+import { rankPromotionService } from "../../../services/rankPromotionService";
+
 export function MasterData() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<TableType>("kpi");
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Reference to the table components for refreshing
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleRefresh = () => {
     setIsLoading(true);
-    // Simulate data fetching
+    // Trigger a refresh by incrementing the refreshTrigger
+    setRefreshTrigger(prev => prev + 1);
+    // Simulate data fetching delay
     setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -40,18 +54,94 @@ export function MasterData() {
     setIsModalOpen(false);
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Submitted data:', data);
-      setIsSubmitting(false);
-      setIsModalOpen(false);
+    try {
+      // Handle different table types
+      switch (activeTab) {
+        case 'kpi':
+          await kpiService.createKPI({
+            kpi_name: data.kpi_name,
+            kpi_type: data.kpi_type
+          });
+          toast({
+            title: 'Success',
+            description: `KPI "${data.kpi_name}" has been created.`,
+          });
+          break;
+          
+        case 'requirement':
+          await requirementService.createRequirement({
+            requirement_name: data.requirement_name
+          });
+          toast({
+            title: 'Success',
+            description: `Requirement "${data.requirement_name}" has been created.`,
+          });
+          break;
+          
+        case 'code-of-honor':
+          await codeOfHonorService.createCodeOfHonor({
+            code_of_honor_name: data.code_of_honor_name,
+            explanation: data.explanation
+          });
+          toast({
+            title: 'Success',
+            description: `Code of Honor "${data.code_of_honor_name}" has been created.`,
+          });
+          break;
+          
+        case 'rank':
+          await rankService.createRank({
+            rank_name: data.rank_name,
+            rank_level: data.rank_level,
+            manual_promotion: data.manual_promotion,
+            time_requirement_months: data.time_requirement_months
+          });
+          toast({
+            title: 'Success',
+            description: `Rank "${data.rank_name}" has been created.`,
+          });
+          break;
+          
+        case 'rank-promotion':
+          await rankPromotionService.createRankPromotion({
+            rank_id: data.rank_id,
+            kpi_id: data.kpi_id,
+            requirement_id: data.requirement_id,
+            target_count_house: data.target_count_house,
+            target_count_condo: data.target_count_condo,
+            minimum_skillset_score: data.minimum_skillset_score,
+            timeframe_days: data.timeframe_days
+          });
+          toast({
+            title: 'Success',
+            description: `Rank Promotion Condition has been created.`,
+          });
+          break;
+          
+        default:
+          toast({
+            title: 'Error',
+            description: 'Unknown table type.',
+            variant: 'destructive',
+          });
+      }
       
-      // Refresh the data
+      // Close the modal and refresh the data
+      setIsModalOpen(false);
       handleRefresh();
-    }, 1000);
+    } catch (error: any) {
+      console.error('Error creating item:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create item. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -104,23 +194,23 @@ export function MasterData() {
         </div>
         
         <TabsContent value="kpi" className="mt-6">
-          <KPITable isLoading={isLoading} />
+          <KPITable isLoading={isLoading} key={`kpi-${refreshTrigger}`} />
         </TabsContent>
         
         <TabsContent value="requirement" className="mt-6">
-          <RequirementTable isLoading={isLoading} />
+          <RequirementTable isLoading={isLoading} key={`requirement-${refreshTrigger}`} />
         </TabsContent>
         
         <TabsContent value="code-of-honor" className="mt-6">
-          <CodeOfHonorTable isLoading={isLoading} />
+          <CodeOfHonorTable isLoading={isLoading} key={`code-of-honor-${refreshTrigger}`} />
         </TabsContent>
         
         <TabsContent value="rank" className="mt-6">
-          <RankTable isLoading={isLoading} />
+          <RankTable isLoading={isLoading} key={`rank-${refreshTrigger}`} />
         </TabsContent>
         
         <TabsContent value="rank-promotion" className="mt-6">
-          <RankPromotionTable isLoading={isLoading} />
+          <RankPromotionTable isLoading={isLoading} key={`rank-promotion-${refreshTrigger}`} />
         </TabsContent>
       </Tabs>
 
