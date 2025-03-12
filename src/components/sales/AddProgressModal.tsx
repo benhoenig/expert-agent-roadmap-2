@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { KPIForm } from "./forms/KPIForm";
 import { RequirementForm } from "./forms/RequirementForm";
@@ -31,6 +31,13 @@ export function AddProgressModal({ isOpen, onClose }: AddProgressModalProps) {
                 ? "Add KPI Progress" 
                 : "Add Requirement Progress"}
           </DialogTitle>
+          <DialogDescription className="text-center">
+            {progressType === null 
+              ? "Select the type of progress you want to add" 
+              : progressType === "kpi" 
+                ? "Record your KPI achievements" 
+                : "Record your completed requirements"}
+          </DialogDescription>
         </DialogHeader>
 
         {progressType === null ? (
