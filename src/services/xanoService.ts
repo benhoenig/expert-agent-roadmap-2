@@ -57,7 +57,12 @@ export const xanoService = {
   
   login: async (credentials: { username: string; password: string }) => {
     try {
+      // Use the credentials directly as they are
+      console.log("Login request payload:", { username: credentials.username, password: "********" });
+      
       const response = await xanoApi.post("/auth/login", credentials);
+      console.log("Login response:", response.data);
+      
       if (!response.data || !response.data.authToken) {
         throw new Error("Invalid response from server: Missing authentication token");
       }
@@ -65,6 +70,12 @@ export const xanoService = {
       return response.data;
     } catch (error) {
       console.error("Login error:", error);
+      // If it's an Axios error, log more details
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+        console.error("Error response headers:", error.response.headers);
+      }
       throw error;
     }
   },

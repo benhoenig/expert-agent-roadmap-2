@@ -30,7 +30,7 @@ const App = () => (
       <Sonner position="top-right" theme="light" closeButton className="z-[100]" />
       <BrowserRouter>
         <Routes>
-          {/* Auth routes */}
+          {/* Auth routes - Sign In Only */}
           <Route path="/" element={<AuthPage />} />
           
           {/* Dashboard routes - Admin */}

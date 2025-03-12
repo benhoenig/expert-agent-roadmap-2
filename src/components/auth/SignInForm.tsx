@@ -31,11 +31,12 @@ export function SignInForm() {
     setError(null);
     
     try {
-      // For login, we use username field but it's actually the email
       const credentials = {
         username: formData.username,
         password: formData.password,
       };
+      
+      console.log("Attempting login with credentials:", { username: credentials.username, password: "********" });
       
       const response = await xanoService.login(credentials);
       
@@ -78,7 +79,34 @@ export function SignInForm() {
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      const errorMessage = err.response?.data?.message || "Failed to sign in. Please check your credentials.";
+      
+      // Provide more specific error messages based on the error
+      let errorMessage = "Failed to sign in. Please check your credentials.";
+      
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (err.response.status === 500) {
+          errorMessage = "Server error. Please contact an administrator.";
+          console.error("Server error details:", err.response.data);
+        } else if (err.response.status === 400) {
+          errorMessage = "Bad request. ";
+          if (err.response.data && err.response.data.message) {
+            errorMessage += err.response.data.message;
+          } else if (err.response.data) {
+            errorMessage += JSON.stringify(err.response.data);
+          }
+          console.error("Bad request details:", err.response.data);
+        } else if (err.response.status === 401 || err.response.status === 403) {
+          errorMessage = "Invalid username or password.";
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        errorMessage = "No response from server. Please check your internet connection.";
+      }
+      
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -100,14 +128,14 @@ export function SignInForm() {
     >
       <div className="space-y-2">
         <Label htmlFor="username" className="text-sm font-medium">
-          Email
+          Username
         </Label>
         <Input
           id="username"
           name="username"
-          type="email"
-          placeholder="you@example.com"
-          autoComplete="email"
+          type="text"
+          placeholder="Enter your username"
+          autoComplete="username"
           required
           className="w-full border-gray-200 focus-within:border-gray-300 transition-all"
           value={formData.username}

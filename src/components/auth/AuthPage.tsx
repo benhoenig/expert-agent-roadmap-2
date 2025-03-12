@@ -1,12 +1,7 @@
-import { useState } from "react";
-import { SignUpForm } from "./SignUpForm";
 import { SignInForm } from "./SignInForm";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
 
 export function AuthPage() {
-  const [formState, setFormState] = useState<"signup" | "signin">("signup");
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-white">
       <motion.div
@@ -27,40 +22,12 @@ export function AuthPage() {
                 <span className="text-gradient">Expert Agent Roadmap</span>
               </h1>
               <p className="text-sm text-muted-foreground">
-                {formState === "signup" 
-                  ? "Sign up to get started with your account" 
-                  : "Sign in to access your account"}
+                Sign in to access your account
               </p>
             </div>
             
-            {/* Form selector */}
-            <div className="flex bg-muted p-1 rounded-lg mb-6">
-              <button
-                className={cn(
-                  "flex-1 text-sm font-medium py-2 transition-all rounded-md",
-                  formState === "signup" 
-                    ? "bg-white text-foreground shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setFormState("signup")}
-              >
-                Sign Up
-              </button>
-              <button
-                className={cn(
-                  "flex-1 text-sm font-medium py-2 transition-all rounded-md",
-                  formState === "signin" 
-                    ? "bg-white text-foreground shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setFormState("signin")}
-              >
-                Sign In
-              </button>
-            </div>
-            
-            {/* Form component */}
-            {formState === "signup" ? <SignUpForm /> : <SignInForm />}
+            {/* Sign In Form */}
+            <SignInForm />
           </div>
         </div>
       </motion.div>
