@@ -45,9 +45,19 @@ interface BatchRankPromotionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: {
+    ranks: Rank[];
+    kpis: KPI[];
+    requirements: Requirement[];
+  };
 }
 
-export function BatchRankPromotionModal({ isOpen, onClose, onSuccess }: BatchRankPromotionModalProps) {
+export function BatchRankPromotionModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess,
+  initialData 
+}: BatchRankPromotionModalProps) {
   const { toast } = useToast();
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [actionKPIs, setActionKPIs] = useState<KPI[]>([]);
@@ -69,7 +79,7 @@ export function BatchRankPromotionModal({ isOpen, onClose, onSuccess }: BatchRan
     },
   });
 
-  // Reset form when modal opens
+  // Reset form and fetch data when modal opens
   useEffect(() => {
     if (isOpen) {
       form.reset({
@@ -79,7 +89,21 @@ export function BatchRankPromotionModal({ isOpen, onClose, onSuccess }: BatchRan
         skillset_kpis: [],
         requirements: [],
       });
-      fetchData();
+      
+      // If initialData is provided, use it instead of fetching
+      if (initialData) {
+        setRanks(initialData.ranks);
+        
+        // Split KPIs by type
+        const actions = initialData.kpis.filter(kpi => kpi.kpi_type === 'Action');
+        const skillsets = initialData.kpis.filter(kpi => kpi.kpi_type === 'Skillset');
+        
+        setActionKPIs(actions);
+        setSkillsetKPIs(skillsets);
+        setRequirements(initialData.requirements);
+      } else {
+        fetchData();
+      }
     }
   }, [isOpen, form]);
 

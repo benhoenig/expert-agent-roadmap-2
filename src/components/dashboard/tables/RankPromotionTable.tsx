@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { BaseTable, BaseItem } from './BaseTable';
 import { useToast } from '../../ui/use-toast';
 import { 
   rankPromotionService, 
@@ -8,6 +7,28 @@ import {
 import { rankService, Rank } from '../../../services/rankService';
 import { kpiService, KPI } from '../../../services/kpiService';
 import { requirementService, Requirement } from '../../../services/requirementService';
+import { Button } from "@/components/ui/button";
+import { 
+  Card, 
+  CardContent,
+  CardFooter,
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -18,94 +39,60 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit, Trash2, Eye, Plus, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { BatchRankPromotionModal } from "../modals/BatchRankPromotionModal";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface RankPromotionTableProps {
   isLoading: boolean;
 }
 
-// Rank Promotion form schema
-const rankPromotionSchema = z.object({
-  rank_id: z.coerce.number().min(1, "Rank is required"),
-  kpi_id: z.coerce.number().min(1, "KPI is required"),
-  requirement_id: z.coerce.number().min(1, "Requirement is required"),
-  target_count_house: z.coerce.number().min(0, "Target count for houses must be at least 0"),
-  target_count_condo: z.coerce.number().min(0, "Target count for condos must be at least 0"),
-  minimum_skillset_score: z.coerce.number().min(0, "Minimum skillset score must be at least 0"),
-  timeframe_days: z.coerce.number().min(1, "Timeframe must be at least 1 day"),
-});
-
-type RankPromotionFormValues = z.infer<typeof rankPromotionSchema>;
+// Define a type for grouped conditions
+interface GroupedConditions {
+  rank: Rank;
+  actionKPIs: {
+    kpi: KPI;
+    target_count_house: number;
+    target_count_condo: number;
+    id: number;
+    timeframe_days: number;
+  }[];
+  skillsetKPIs: {
+    kpi: KPI;
+    minimum_skillset_score: number;
+    id: number;
+    timeframe_days: number;
+  }[];
+  requirements: {
+    requirement: Requirement;
+    target_count: number;
+    id: number;
+    timeframe_days: number;
+  }[];
+}
 
 export function RankPromotionTable({ isLoading: externalLoading }: RankPromotionTableProps) {
   const { toast } = useToast();
   const [items, setItems] = useState<RankPromotionType[]>([]);
+  const [groupedItems, setGroupedItems] = useState<GroupedConditions[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedRanks, setExpandedRanks] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<RankPromotionType | null>(null);
+  const [selectedConditionId, setSelectedConditionId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // State for dropdown options
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
 
-  // Create the form
-  const form = useForm<RankPromotionFormValues>({
-    resolver: zodResolver(rankPromotionSchema),
-    defaultValues: {
-      rank_id: 0,
-      kpi_id: 0,
-      requirement_id: 0,
-      target_count_house: 0,
-      target_count_condo: 0,
-      minimum_skillset_score: 0,
-      timeframe_days: 30,
-    },
-  });
-
-  // Update form values when selected item changes
-  useEffect(() => {
-    if (selectedItem) {
-      form.setValue("rank_id", selectedItem.rank_id);
-      form.setValue("kpi_id", selectedItem.kpi_id);
-      form.setValue("requirement_id", selectedItem.requirement_id);
-      form.setValue("target_count_house", selectedItem.target_count_house);
-      form.setValue("target_count_condo", selectedItem.target_count_condo);
-      form.setValue("minimum_skillset_score", selectedItem.minimum_skillset_score);
-      form.setValue("timeframe_days", selectedItem.timeframe_days);
-    }
-  }, [selectedItem, form]);
+  // Helper function to add delay between API calls
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   // Fetch rank promotions and dropdown options on component mount
   useEffect(() => {
@@ -116,11 +103,18 @@ export function RankPromotionTable({ isLoading: externalLoading }: RankPromotion
   // Fetch rank promotions from the API
   const fetchRankPromotions = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const promotions = await rankPromotionService.getAllRankPromotions();
       setItems(promotions);
+      
+      // Group the promotions by rank
+      if (ranks.length > 0 && kpis.length > 0 && requirements.length > 0) {
+        groupPromotionsByRank(promotions);
+      }
     } catch (error: any) {
       console.error('Error fetching rank promotions:', error);
+      setError('Failed to fetch rank promotion conditions. Please try again later.');
       toast({
         title: 'Error',
         description: error.message || 'Failed to fetch rank promotions',
@@ -131,116 +125,165 @@ export function RankPromotionTable({ isLoading: externalLoading }: RankPromotion
     }
   };
 
-  // Fetch dropdown options from the API
+  // Fetch dropdown options from the API sequentially to avoid rate limiting
   const fetchDropdownOptions = async () => {
-    setIsLoadingOptions(true);
+    setIsLoading(true);
+    setError(null);
     try {
-      const [ranksData, kpisData, requirementsData] = await Promise.all([
-        rankService.getAllRanks(),
-        kpiService.getAllKPIs(),
-        requirementService.getAllRequirements()
-      ]);
-      
+      // Fetch ranks first
+      const ranksData = await rankService.getAllRanks();
       setRanks(ranksData);
+      
+      // Add delay before next request
+      await delay(500);
+      
+      // Fetch KPIs next
+      const kpisData = await kpiService.getAllKPIs();
       setKpis(kpisData);
+      
+      // Add delay before next request
+      await delay(500);
+      
+      // Fetch requirements last
+      const requirementsData = await requirementService.getAllRequirements();
       setRequirements(requirementsData);
+      
+      // If we already have items, group them now that we have the reference data
+      if (items.length > 0) {
+        groupPromotionsByRank(items);
+      }
     } catch (error: any) {
       console.error('Error fetching dropdown options:', error);
+      setError('Failed to fetch necessary data. Please try refreshing the page.');
       toast({
         title: 'Error',
         description: error.message || 'Failed to fetch dropdown options',
         variant: 'destructive',
       });
     } finally {
-      setIsLoadingOptions(false);
+      setIsLoading(false);
     }
   };
 
-  // Helper functions to get names from IDs
-  const getRankName = (rankId: number) => {
-    const rank = ranks.find(r => r.id === rankId);
-    return rank ? rank.rank_name : `Rank ID: ${rankId}`;
+  // Refresh all data
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchRankPromotions();
+      await fetchDropdownOptions();
+      toast({
+        title: 'Success',
+        description: 'Data refreshed successfully',
+      });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  const getKpiName = (kpiId: number) => {
-    const kpi = kpis.find(k => k.id === kpiId);
-    return kpi ? kpi.kpi_name : `KPI ID: ${kpiId}`;
+  // Group promotions by rank
+  const groupPromotionsByRank = (promotions: RankPromotionType[]) => {
+    // Create a map of rank IDs to their conditions
+    const rankMap = new Map<number, GroupedConditions>();
+    
+    // Initialize the map with all ranks
+    ranks.forEach(rank => {
+      rankMap.set(rank.id, {
+        rank,
+        actionKPIs: [],
+        skillsetKPIs: [],
+        requirements: []
+      });
+    });
+    
+    // Populate the map with conditions
+    promotions.forEach(promotion => {
+      const rankId = promotion.rank_id;
+      
+      // Skip if rank doesn't exist in our data
+      if (!rankMap.has(rankId)) return;
+      
+      const groupedCondition = rankMap.get(rankId)!;
+      
+      // Add to the appropriate category
+      if (promotion.kpi_id > 0) {
+        const kpi = kpis.find(k => k.id === promotion.kpi_id);
+        if (kpi) {
+          if (kpi.kpi_type === 'Action') {
+            groupedCondition.actionKPIs.push({
+              kpi,
+              target_count_house: promotion.target_count_house,
+              target_count_condo: promotion.target_count_condo,
+              id: promotion.id,
+              timeframe_days: promotion.timeframe_days
+            });
+          } else if (kpi.kpi_type === 'Skillset') {
+            groupedCondition.skillsetKPIs.push({
+              kpi,
+              minimum_skillset_score: promotion.minimum_skillset_score,
+              id: promotion.id,
+              timeframe_days: promotion.timeframe_days
+            });
+          }
+        }
+      } else if (promotion.requirement_id > 0) {
+        const requirement = requirements.find(r => r.id === promotion.requirement_id);
+        if (requirement) {
+          groupedCondition.requirements.push({
+            requirement,
+            target_count: promotion.target_count_house, // Using house count as the general count
+            id: promotion.id,
+            timeframe_days: promotion.timeframe_days
+          });
+        }
+      }
+    });
+    
+    // Convert map to array and filter out ranks with no conditions
+    const groupedArray = Array.from(rankMap.values())
+      .filter(group => 
+        group.actionKPIs.length > 0 || 
+        group.skillsetKPIs.length > 0 || 
+        group.requirements.length > 0
+      )
+      .sort((a, b) => a.rank.rank_level - b.rank.rank_level);
+    
+    setGroupedItems(groupedArray);
   };
 
-  const getRequirementName = (requirementId: number) => {
-    const requirement = requirements.find(r => r.id === requirementId);
-    return requirement ? requirement.requirement_name : `Requirement ID: ${requirementId}`;
+  // Toggle expanded state for a rank
+  const toggleRankExpanded = (rankId: number) => {
+    setExpandedRanks(prev => 
+      prev.includes(rankId) 
+        ? prev.filter(id => id !== rankId) 
+        : [...prev, rankId]
+    );
   };
 
-  const columns = [
-    { 
-      header: 'Rank', 
-      accessor: 'rank_id' as keyof RankPromotionType,
-      cell: (item: RankPromotionType) => (
-        <span>{getRankName(item.rank_id)}</span>
-      )
-    },
-    { 
-      header: 'KPI', 
-      accessor: 'kpi_id' as keyof RankPromotionType,
-      cell: (item: RankPromotionType) => (
-        <span>{getKpiName(item.kpi_id)}</span>
-      )
-    },
-    { 
-      header: 'Requirement', 
-      accessor: 'requirement_id' as keyof RankPromotionType,
-      cell: (item: RankPromotionType) => (
-        <span>{getRequirementName(item.requirement_id)}</span>
-      )
-    },
-    { header: 'Target (House)', accessor: 'target_count_house' as keyof RankPromotionType },
-    { header: 'Target (Condo)', accessor: 'target_count_condo' as keyof RankPromotionType },
-    { header: 'Min. Skillset Score', accessor: 'minimum_skillset_score' as keyof RankPromotionType },
-    { header: 'Timeframe (Days)', accessor: 'timeframe_days' as keyof RankPromotionType },
-    { 
-      header: 'Created At', 
-      accessor: 'created_at' as keyof RankPromotionType,
-      cell: (item: RankPromotionType) => (
-        <span>{new Date(item.created_at).toLocaleDateString()}</span>
-      )
-    },
-  ];
-
-  const handleEdit = (item: RankPromotionType) => {
-    setSelectedItem(item);
-    setIsEditModalOpen(true);
-  };
-
-  const handleDelete = (item: RankPromotionType) => {
-    setSelectedItem(item);
+  // Handle condition deletion
+  const handleDeleteCondition = (conditionId: number) => {
+    setSelectedConditionId(conditionId);
     setIsDeleteDialogOpen(true);
   };
 
-  const handleView = (item: RankPromotionType) => {
-    toast({
-      title: 'View Rank Promotion Condition',
-      description: `Viewing details for condition ID: ${item.id}`,
-    });
-  };
-
+  // Confirm deletion
   const confirmDelete = async () => {
-    if (!selectedItem) return;
+    if (!selectedConditionId) return;
     
     setIsSubmitting(true);
     try {
-      await rankPromotionService.deleteRankPromotion(selectedItem.id);
+      await rankPromotionService.deleteRankPromotion(selectedConditionId);
       toast({
         title: 'Success',
-        description: `Rank Promotion Condition has been deleted.`,
+        description: 'Condition has been deleted.',
       });
-      // Refresh the rank promotions list
       fetchRankPromotions();
     } catch (error: any) {
-      console.error('Error deleting rank promotion:', error);
+      console.error('Error deleting condition:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete rank promotion',
+        description: error.message || 'Failed to delete condition',
         variant: 'destructive',
       });
     } finally {
@@ -249,42 +292,234 @@ export function RankPromotionTable({ isLoading: externalLoading }: RankPromotion
     }
   };
 
-  const handleUpdateRankPromotion = async (data: RankPromotionFormValues) => {
-    if (!selectedItem) return;
-    
-    setIsSubmitting(true);
-    try {
-      await rankPromotionService.updateRankPromotion(selectedItem.id, data);
-      toast({
-        title: 'Success',
-        description: `Rank Promotion Condition has been updated.`,
-      });
-      // Refresh the rank promotions list
-      fetchRankPromotions();
-      setIsEditModalOpen(false);
-    } catch (error: any) {
-      console.error('Error updating rank promotion:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update rank promotion',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  // Handle adding new conditions
+  const handleAddConditions = () => {
+    setIsBatchModalOpen(true);
   };
+
+  // Filter grouped items based on search term
+  const filteredItems = searchTerm 
+    ? groupedItems.filter(group => 
+        group.rank.rank_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.actionKPIs.some(item => item.kpi.kpi_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        group.skillsetKPIs.some(item => item.kpi.kpi_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        group.requirements.some(item => item.requirement.requirement_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : groupedItems;
 
   return (
     <>
-      <BaseTable
-        items={items}
-        columns={columns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onView={handleView}
-        isLoading={isLoading || externalLoading}
-        searchPlaceholder="Search rank promotion conditions..."
-      />
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Input
+            placeholder="Search rank promotion conditions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={refreshData} 
+              disabled={isRefreshing || isLoading}
+            >
+              {isRefreshing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+            <Button onClick={handleAddConditions}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Conditions
+            </Button>
+          </div>
+        </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {error}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-2" 
+                onClick={refreshData}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? 'Refreshing...' : 'Try Again'}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isLoading || externalLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No rank promotion conditions found.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredItems.map((group) => (
+              <Card key={group.rank.id} className="overflow-hidden">
+                <Collapsible
+                  open={expandedRanks.includes(group.rank.id)}
+                  onOpenChange={() => toggleRankExpanded(group.rank.id)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {expandedRanks.includes(group.rank.id) ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                          <CardTitle>{group.rank.rank_name}</CardTitle>
+                          <Badge variant="outline" className="ml-2">
+                            Level {group.rank.rank_level}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">
+                            {group.actionKPIs.length + group.skillsetKPIs.length + group.requirements.length} Conditions
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      {/* Action KPIs */}
+                      {group.actionKPIs.length > 0 && (
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2">Action KPIs</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>KPI Name</TableHead>
+                                <TableHead>Target (House)</TableHead>
+                                <TableHead>Target (Condo)</TableHead>
+                                <TableHead>Timeframe (Days)</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.actionKPIs.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.kpi.kpi_name}</TableCell>
+                                  <TableCell>{item.target_count_house}</TableCell>
+                                  <TableCell>{item.target_count_condo}</TableCell>
+                                  <TableCell>{item.timeframe_days}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteCondition(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
+                      {/* Skillset KPIs */}
+                      {group.skillsetKPIs.length > 0 && (
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2">Skillset KPIs</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>KPI Name</TableHead>
+                                <TableHead>Minimum Score</TableHead>
+                                <TableHead>Timeframe (Days)</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.skillsetKPIs.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.kpi.kpi_name}</TableCell>
+                                  <TableCell>{item.minimum_skillset_score}</TableCell>
+                                  <TableCell>{item.timeframe_days}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteCondition(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
+                      {/* Requirements */}
+                      {group.requirements.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">Requirements</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Requirement Name</TableHead>
+                                <TableHead>Target Count</TableHead>
+                                <TableHead>Timeframe (Days)</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.requirements.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.requirement.requirement_name}</TableCell>
+                                  <TableCell>{item.target_count}</TableCell>
+                                  <TableCell>{item.timeframe_days}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteCondition(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="border-t bg-muted/50 py-3">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsBatchModalOpen(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add More Conditions
+                      </Button>
+                    </CardFooter>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -292,7 +527,7 @@ export function RankPromotionTable({ isLoading: externalLoading }: RankPromotion
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the rank promotion condition.
+              This action cannot be undone. This will permanently delete the promotion condition.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -302,202 +537,31 @@ export function RankPromotionTable({ isLoading: externalLoading }: RankPromotion
               disabled={isSubmitting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isSubmitting ? 'Deleting...' : 'Delete'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Rank Promotion Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Rank Promotion Condition</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleUpdateRankPromotion)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="rank_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rank</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
-                      defaultValue={field.value ? field.value.toString() : undefined}
-                      disabled={isLoadingOptions}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select rank" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {ranks.map((rank) => (
-                          <SelectItem key={rank.id} value={rank.id.toString()}>
-                            {rank.rank_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="kpi_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>KPI</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
-                      defaultValue={field.value ? field.value.toString() : undefined}
-                      disabled={isLoadingOptions}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select KPI" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {kpis.map((kpi) => (
-                          <SelectItem key={kpi.id} value={kpi.id.toString()}>
-                            {kpi.kpi_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="requirement_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Requirement</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
-                      defaultValue={field.value ? field.value.toString() : undefined}
-                      disabled={isLoadingOptions}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select requirement" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {requirements.map((requirement) => (
-                          <SelectItem key={requirement.id} value={requirement.id.toString()}>
-                            {requirement.requirement_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="target_count_house"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Count (House)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="Enter target count" 
-                          {...field} 
-                          min={0}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="target_count_condo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Count (Condo)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="Enter target count" 
-                          {...field} 
-                          min={0}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="minimum_skillset_score"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Minimum Skillset Score</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="Enter minimum score" 
-                        {...field} 
-                        min={0}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="timeframe_days"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Timeframe (Days)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="Enter timeframe in days" 
-                        {...field} 
-                        min={1}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      {/* Batch Add Modal */}
+      <BatchRankPromotionModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={fetchRankPromotions}
+        // Pass the already fetched data to avoid redundant API calls
+        initialData={{
+          ranks,
+          kpis,
+          requirements
+        }}
+      />
     </>
   );
 } 
