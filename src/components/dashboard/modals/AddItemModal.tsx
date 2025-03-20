@@ -85,12 +85,91 @@ const rankPromotionSchema = z.object({
   timeframe_days: z.coerce.number().min(1, "Timeframe must be at least 1 day"),
 });
 
+// Define form value types for each form type
+type KPIFormValues = z.infer<typeof kpiSchema>;
+type RequirementFormValues = z.infer<typeof requirementSchema>;
+type CodeOfHonorFormValues = z.infer<typeof codeOfHonorSchema>;
+type RankFormValues = z.infer<typeof rankSchema>;
+type RankPromotionFormValues = z.infer<typeof rankPromotionSchema>;
+
+// Union type for all possible form values
+type FormValues = KPIFormValues | RequirementFormValues | CodeOfHonorFormValues | RankFormValues | RankPromotionFormValues;
+
 export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }: AddItemModalProps) {
   // State for dropdown options
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+
+  // Get the appropriate schema based on the table type
+  const getSchema = () => {
+    switch (tableType) {
+      case 'kpi':
+        return kpiSchema;
+      case 'requirement':
+        return requirementSchema;
+      case 'code-of-honor':
+        return codeOfHonorSchema;
+      case 'rank':
+        return rankSchema;
+      case 'rank-promotion':
+        return rankPromotionSchema;
+      default:
+        return z.object({});
+    }
+  };
+
+  // Get default values based on the table type
+  const getDefaultValues = () => {
+    switch (tableType) {
+      case 'kpi':
+        return {
+          kpi_name: "",
+          kpi_type: "Action" // Default to "Action" instead of undefined
+        };
+      case 'requirement':
+        return {
+          requirement_name: ""
+        };
+      case 'code-of-honor':
+        return {
+          code_of_honor_name: "",
+          explanation: ""
+        };
+      case 'rank':
+        return {
+          rank_name: "",
+          rank_level: 1,
+          manual_promotion: false,
+          time_requirement_months: 0
+        };
+      case 'rank-promotion':
+        return {
+          // Use actual number values for these fields instead of empty strings
+          rank_id: 0,
+          kpi_id: 0,
+          requirement_id: 0,
+          target_count_house: 0,
+          target_count_condo: 0,
+          minimum_skillset_score: 0,
+          timeframe_days: 30
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Create the form with properly initialized default values
+  const form = useForm<FormValues>({
+    resolver: zodResolver(getSchema()),
+    defaultValues: getDefaultValues() as any,
+  });
+
+  // Reset the form when the table type changes
+  useEffect(() => {
+    form.reset(getDefaultValues());
+  }, [tableType, form]);
 
   // Fetch dropdown options when the modal opens for rank-promotion
   useEffect(() => {
@@ -118,35 +197,6 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
       setIsLoadingOptions(false);
     }
   };
-
-  // Get the appropriate schema based on the table type
-  const getSchema = () => {
-    switch (tableType) {
-      case 'kpi':
-        return kpiSchema;
-      case 'requirement':
-        return requirementSchema;
-      case 'code-of-honor':
-        return codeOfHonorSchema;
-      case 'rank':
-        return rankSchema;
-      case 'rank-promotion':
-        return rankPromotionSchema;
-      default:
-        return z.object({});
-    }
-  };
-
-  // Create the form
-  const form = useForm({
-    resolver: zodResolver(getSchema()),
-    defaultValues: {},
-  });
-
-  // Reset the form when the table type changes
-  useEffect(() => {
-    form.reset();
-  }, [tableType, form]);
 
   // Handle form submission
   const handleSubmit = (data: any) => {
@@ -198,7 +248,7 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                   <FormLabel>KPI Type</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
-                    defaultValue={field.value}
+                    value={field.value || "Action"}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -351,8 +401,8 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                 <FormItem>
                   <FormLabel>Rank</FormLabel>
                   <Select 
-                    onValueChange={(value) => field.onChange(parseInt(value))} 
-                    defaultValue={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(parseInt(value) || 0)} 
+                    value={field.value?.toString() || "0"}
                     disabled={isLoadingOptions}
                   >
                     <FormControl>
@@ -383,8 +433,8 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                 <FormItem>
                   <FormLabel>KPI</FormLabel>
                   <Select 
-                    onValueChange={(value) => field.onChange(parseInt(value))} 
-                    defaultValue={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(parseInt(value) || 0)} 
+                    value={field.value?.toString() || "0"}
                     disabled={isLoadingOptions}
                   >
                     <FormControl>
@@ -415,8 +465,8 @@ export function AddItemModal({ isOpen, onClose, tableType, onSubmit, isLoading }
                 <FormItem>
                   <FormLabel>Requirement</FormLabel>
                   <Select 
-                    onValueChange={(value) => field.onChange(parseInt(value))} 
-                    defaultValue={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(parseInt(value) || 0)} 
+                    value={field.value?.toString() || "0"}
                     disabled={isLoadingOptions}
                   >
                     <FormControl>

@@ -9,6 +9,7 @@ import { UserDashboard } from "./components/dashboard/Pages/User";
 import { MasterData } from "./components/dashboard/Pages/MasterData";
 import { Content } from "./components/dashboard/Pages/Content";
 import UserManagement from "./pages/dashboard/UserManagement";
+import MentorAssignment from "./pages/dashboard/MentorAssignment";
 import { SalesLayout } from "./components/sales/SalesLayout";
 import { SalesRoadmap } from "./components/sales/Pages/Roadmap";
 import { SalesProgress } from "./components/sales/Pages/Progress";
@@ -17,9 +18,9 @@ import { SalesInformation } from "./components/sales/Pages/Information";
 import { SalesSettings } from "./components/sales/Pages/Settings";
 import { MentorLayout } from "./components/mentor/MentorLayout";
 import { MentorMySales } from "./components/mentor/Pages/MySales";
-import { MentorGoals } from "./components/mentor/Pages/Goals";
 import { MentorAllSales } from "./components/mentor/Pages/AllSales";
 import NotFound from "./pages/NotFound";
+import { GoalsAndTargetsPage } from "./components/mentor/Pages/GoalsAndTargets";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Navigate to="/dashboard/user-management" replace />} />
             <Route path="user-management" element={<UserManagement />} />
+            <Route path="mentor-assignment" element={<MentorAssignment />} />
             <Route path="master-data" element={<MasterData />} />
             <Route path="content" element={<Content />} />
           </Route>
@@ -53,7 +55,7 @@ const App = () => (
           {/* Mentor routes */}
           <Route path="/mentor" element={<MentorLayout />}>
             <Route index element={<MentorMySales />} />
-            <Route path="goals" element={<MentorGoals />} />
+            <Route path="goals-targets" element={<GoalsAndTargetsPage />} />
             <Route path="all-sales" element={<MentorAllSales />} />
           </Route>
           

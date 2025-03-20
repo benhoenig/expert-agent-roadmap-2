@@ -10,8 +10,9 @@ import {
   SalesProfile, 
   MentorProfile, 
   UserWithProfiles,
-  checkAuthToken
-} from '../../services/userService';
+  checkAuthToken,
+  formatUserServiceError
+} from '../../services/api/userService';
 import { PageHeader } from '../../components/dashboard/PageHeader';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,7 +20,6 @@ export default function UserManagement() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithProfiles[]>([]);
-  console.log('Initial users state:', users);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -60,10 +60,7 @@ export default function UserManagement() {
       }
       
       const fetchedUsers = await userService.getAllUsers();
-      console.log('Users fetched successfully:', fetchedUsers);
-      
       setUsers(fetchedUsers);
-      console.log('Users state after update:', fetchedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       
@@ -79,7 +76,7 @@ export default function UserManagement() {
       
       toast({
         title: 'API Connection Error',
-        description: `Failed to load users: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: formatUserServiceError(error, 'user fetching'),
         variant: 'destructive',
       });
       
@@ -133,7 +130,7 @@ export default function UserManagement() {
       console.error('Error deleting user:', error);
       toast({
         title: 'API Connection Error',
-        description: `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: formatUserServiceError(error, 'user deletion'),
         variant: 'destructive',
       });
     } finally {
@@ -154,37 +151,125 @@ export default function UserManagement() {
       
       // Check if we're updating an existing user or creating a new one
       if (selectedUser?.id) {
-        // Update existing user
-        user = await userService.updateUser(selectedUser.id, userData);
+        // STEP 1: Determine what data is changing
+        const userDataChanges = {};
+        const salesDataChanges = {};
+        let hasUserChanges = false;
+        let hasSalesChanges = false;
         
-        // Handle role-specific profile updates
-        try {
-          if (userData.role === 'Sales' && salesData) {
-            if (selectedUser.sales_profile?.id) {
-              await userService.updateSalesProfile(selectedUser.sales_profile.id, salesData);
+        // Check for user data changes
+        if (userData) {
+          Object.keys(userData).forEach(key => {
+            if (key !== 'id' && userData[key] !== selectedUser[key as keyof User]) {
+              hasUserChanges = true;
+              userDataChanges[key] = userData[key];
+            }
+          });
+        }
+        
+        // Check for sales data changes
+        if (salesData) {
+          hasSalesChanges = Object.keys(salesData).length > 0;
+        }
+        
+        console.log('Change detection:', { hasUserChanges, hasSalesChanges });
+        
+        // STEP 2: Update user data if needed
+        if (hasUserChanges) {
+          try {
+            user = await userService.updateUser(selectedUser.id, userData);
+            console.log('User data updated successfully');
+          } catch (userError) {
+            console.error('Error updating user data:', userError);
+            toast({
+              title: 'Warning',
+              description: 'Could not update user data. Will try to update profile data only.',
+              variant: 'destructive',
+            });
+            user = selectedUser;
+          }
+        } else {
+          console.log('No changes to user data, skipping user update');
+          user = selectedUser;
+        }
+        
+        // STEP 3: Handle sales profile updates if needed
+        if (hasSalesChanges && (userData.role === 'Sales' || selectedUser.role === 'Sales')) {
+          try {
+            // First check if the user has a sales profile
+            let salesProfileId = selectedUser.sales_profile?.id;
+            
+            // If sales profile ID is not available in the selected user, try to find it by user_id
+            if (!salesProfileId) {
+              console.log('Sales profile not found in selected user data, looking up by user_id');
+              try {
+                // Get all sales profiles and filter by user_id
+                const allSalesProfiles = await userService.getAllSalesProfiles();
+                const userSalesProfile = allSalesProfiles.find(
+                  profile => profile.user_id === selectedUser.id
+                );
+                
+                if (userSalesProfile) {
+                  console.log('Found sales profile by user_id:', userSalesProfile.id);
+                  salesProfileId = userSalesProfile.id;
+                }
+              } catch (lookupError) {
+                console.error('Error looking up sales profile by user_id:', lookupError);
+              }
+            }
+            
+            // Now we either have a sales profile ID or we don't
+            if (salesProfileId) {
+              // Update existing sales profile
+              await userService.updateSalesProfile(salesProfileId, salesData);
+              console.log('Sales profile updated successfully');
             } else {
+              // Create new sales profile
+              console.log('No existing sales profile found, creating new one');
               await userService.createSalesProfile({
                 ...salesData,
                 user_id: selectedUser.id,
-              } as any);
+                // Ensure all required fields are present with defaults if needed
+                starting_date: salesData.starting_date || new Date().toISOString(),
+                generation: salesData.generation || 1,
+                property_type: salesData.property_type || 'House',
+                probation_status: salesData.probation_status || 'Ongoing',
+                probation_extended: salesData.probation_extended || false,
+              });
+              console.log('New sales profile created successfully');
             }
-          } else if (userData.role === 'Mentor' && mentorData && !selectedUser.mentor_profile?.id) {
+          } catch (salesError) {
+            console.error('Error updating sales profile:', salesError);
+            toast({
+              title: 'Warning',
+              description: `Could not update sales profile: ${salesError.message}`,
+              variant: 'destructive',
+            });
+          }
+        }
+        
+        // Similar handling for mentor profiles...
+        if ((userData.role === 'Mentor' || selectedUser.role === 'Mentor') && 
+            mentorData && !selectedUser.mentor_profile?.id) {
+          // Check if the mentor_profile endpoint exists before trying to create
+          try {
             await userService.createMentorProfile({
               user_id: selectedUser.id,
             });
+          } catch (mentorError) {
+            console.error('Error creating mentor profile:', mentorError);
+            // Don't fail the whole operation if mentor profile creation fails
+            toast({
+              title: 'Warning',
+              description: 'User was updated but mentor profile could not be created. This may be a backend configuration issue.',
+              variant: 'destructive',
+            });
           }
-        } catch (profileError: any) {
-          // Show error but don't fail the whole operation since the user was updated
-          toast({
-            title: 'Warning',
-            description: `User was updated but profile data failed: ${profileError.message}`,
-            variant: 'destructive',
-          });
         }
         
         toast({
           title: 'Success',
-          description: `${userData.full_name} has been updated.`,
+          description: `${userData.full_name || selectedUser.full_name} has been updated.`,
         });
       } else {
         // Create new user
@@ -196,7 +281,12 @@ export default function UserManagement() {
             await userService.createSalesProfile({
               ...salesData,
               user_id: user.id,
-            } as any);
+              starting_date: salesData.starting_date || new Date().toISOString(),
+              generation: salesData.generation || 1,
+              property_type: salesData.property_type || 'House',
+              probation_status: salesData.probation_status || 'Ongoing',
+              probation_extended: salesData.probation_extended || false,
+            });
           } else if (userData.role === 'Mentor' && mentorData) {
             await userService.createMentorProfile({
               user_id: user.id,
@@ -224,13 +314,18 @@ export default function UserManagement() {
       setIsFormOpen(false);
     } catch (error: any) {
       console.error('Error saving user:', error);
+      
+      // Use the centralized error formatting helper
+      const errorMessage = formatUserServiceError(error, selectedUser?.id ? 'user update' : 'user creation');
+      
       toast({
-        title: 'API Connection Error',
-        description: error.message || 'Failed to save user. Please check your connection to the API server.',
+        title: 'Error',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);
+      setIsFormOpen(false);
     }
   };
   

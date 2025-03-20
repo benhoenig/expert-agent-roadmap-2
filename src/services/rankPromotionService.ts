@@ -1,58 +1,5 @@
-import axios, { AxiosError } from "axios";
+import { makeApiRequest, tryCatchWrapper } from "./api/xanoClient";
 import { BaseItem } from "../components/dashboard/tables/BaseTable";
-
-// Xano API configuration
-const XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
-
-// Helper function to get the token from storage
-const getAuthToken = () => {
-  // Check localStorage first, then sessionStorage
-  return localStorage.getItem("xano_token") || sessionStorage.getItem("xano_token") || null;
-};
-
-// Create an axios instance with the base URL
-const xanoApi = axios.create({
-  baseURL: XANO_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add request interceptor for authentication
-xanoApi.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Helper function to retry API calls with exponential backoff
-const retryRequest = async (apiCall: () => Promise<any>, maxRetries = 3): Promise<any> => {
-  let retries = 0;
-  
-  while (retries < maxRetries) {
-    try {
-      return await apiCall();
-    } catch (error) {
-      if (error instanceof AxiosError && error.response?.status === 429) {
-        // Rate limit hit - wait and retry
-        retries++;
-        if (retries >= maxRetries) {
-          throw error; // Max retries reached, rethrow the error
-        }
-        
-        // Calculate exponential backoff delay (1s, 2s, 4s, etc.)
-        const delay = Math.pow(2, retries) * 1000;
-        console.log(`Rate limit hit. Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        // Not a rate limit error, rethrow immediately
-        throw error;
-      }
-    }
-  }
-};
 
 export interface RankPromotion extends BaseItem {
   id: number;
@@ -93,116 +40,85 @@ export interface UpdateRankPromotionRequest {
 
 class RankPromotionService {
   /**
-   * Get all Rank Promotion Condition records
+   * Get all Rank Promotion records
    */
   async getAllRankPromotions(): Promise<RankPromotion[]> {
-    try {
-      console.log('Fetching all Rank Promotion Conditions');
+    return tryCatchWrapper(async () => {
+      console.log('Fetching all Rank Promotion conditions');
       
-      const response = await retryRequest(async () => {
-        return await xanoApi.get('/ranking_promotion_condition');
-      });
+      const data = await makeApiRequest('get', '/ranking_promotion_condition');
       
-      console.log('Rank Promotion Conditions fetched successfully:', response.data);
-      
-      // Map the response to include the name property required by BaseItem
-      return response.data.map((promotion: any) => ({
+      console.log('Rank Promotion conditions fetched successfully:', data);
+      // Map the response to include required fields
+      return data.map((promotion: any) => ({
         ...promotion,
-        name: `${promotion.rank_name || 'Unknown Rank'} - ${promotion.kpi_name || 'Unknown KPI'} - ${promotion.requirement_name || 'Unknown Requirement'}` // Create a name for BaseItem compatibility
+        name: `${promotion.rank_name} - ${promotion.kpi_name} - ${promotion.requirement_name}` // Create a display name
       }));
-    } catch (error) {
-      console.error('Error fetching Rank Promotion Conditions:', error);
-      throw error;
-    }
+    }, 'getAllRankPromotions');
   }
 
   /**
-   * Get a Rank Promotion Condition by ID
+   * Get a Rank Promotion by ID
    */
   async getRankPromotionById(promotionId: number): Promise<RankPromotion> {
-    try {
-      console.log(`Fetching Rank Promotion Condition with ID ${promotionId}`);
+    return tryCatchWrapper(async () => {
+      console.log(`Fetching Rank Promotion with ID ${promotionId}`);
       
-      const response = await retryRequest(async () => {
-        return await xanoApi.get(`/ranking_promotion_condition/${promotionId}`);
-      });
+      const data = await makeApiRequest('get', `/ranking_promotion_condition/${promotionId}`);
       
-      console.log('Rank Promotion Condition fetched successfully:', response.data);
-      
+      console.log('Rank Promotion fetched successfully:', data);
       // Add the name property required by BaseItem
       return {
-        ...response.data,
-        name: `${response.data.rank_name || 'Unknown Rank'} - ${response.data.kpi_name || 'Unknown KPI'} - ${response.data.requirement_name || 'Unknown Requirement'}`
+        ...data,
+        name: `${data.rank_name} - ${data.kpi_name} - ${data.requirement_name}` // Create a display name
       };
-    } catch (error) {
-      console.error(`Error fetching Rank Promotion Condition with ID ${promotionId}:`, error);
-      throw error;
-    }
+    }, `getRankPromotionById(${promotionId})`);
   }
 
   /**
-   * Create a new Rank Promotion Condition
+   * Create a new Rank Promotion
    */
   async createRankPromotion(promotionData: CreateRankPromotionRequest): Promise<RankPromotion> {
-    try {
-      console.log('Creating new Rank Promotion Condition with data:', promotionData);
+    return tryCatchWrapper(async () => {
+      console.log('Creating new Rank Promotion with data:', promotionData);
       
-      const response = await retryRequest(async () => {
-        return await xanoApi.post('/ranking_promotion_condition', promotionData);
-      });
+      const data = await makeApiRequest('post', '/ranking_promotion_condition', promotionData);
       
-      console.log('Rank Promotion Condition created successfully:', response.data);
-      
-      // Add the name property required by BaseItem
+      console.log('Rank Promotion created successfully:', data);
+      // Add the name property
       return {
-        ...response.data,
-        name: `Rank Promotion Condition #${response.data.id}`
+        ...data,
+        name: `Rank Promotion ${data.id}` // Basic name since we may not have the relation data yet
       };
-    } catch (error) {
-      console.error('Error creating Rank Promotion Condition:', error);
-      throw error;
-    }
+    }, 'createRankPromotion');
   }
 
   /**
-   * Update an existing Rank Promotion Condition
+   * Update an existing Rank Promotion
    */
   async updateRankPromotion(promotionId: number, promotionData: UpdateRankPromotionRequest): Promise<RankPromotion> {
-    try {
-      console.log(`Updating Rank Promotion Condition with ID ${promotionId} with data:`, promotionData);
-      console.log(`API endpoint: /ranking_promotion_condition/${promotionId}`);
+    return tryCatchWrapper(async () => {
+      console.log(`Updating Rank Promotion with ID ${promotionId} with data:`, promotionData);
       
-      const response = await retryRequest(async () => {
-        return await xanoApi.patch(`/ranking_promotion_condition/${promotionId}`, promotionData);
-      });
+      const data = await makeApiRequest('patch', `/ranking_promotion_condition/${promotionId}`, promotionData);
       
-      console.log('Update Rank Promotion Condition response:', response.data);
+      console.log('Update Rank Promotion response:', data);
       
-      // Add the name property required by BaseItem
+      // Add the name property
       return {
-        ...response.data,
-        name: `Rank Promotion Condition #${response.data.id}`
+        ...data,
+        name: `${data.rank_name || ''} - ${data.kpi_name || ''} - ${data.requirement_name || ''}`.trim()
       };
-    } catch (error) {
-      console.error(`Error updating Rank Promotion Condition with ID ${promotionId}:`, error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      throw error;
-    }
+    }, `updateRankPromotion(${promotionId})`);
   }
 
   /**
-   * Delete a Rank Promotion Condition
+   * Delete a Rank Promotion
    */
   async deleteRankPromotion(promotionId: number): Promise<void> {
-    try {
-      await retryRequest(async () => {
-        return await xanoApi.delete(`/ranking_promotion_condition/${promotionId}`);
-      });
-    } catch (error) {
-      console.error(`Error deleting Rank Promotion Condition with ID ${promotionId}:`, error);
-      throw error;
-    }
+    return tryCatchWrapper(async () => {
+      await makeApiRequest('delete', `/ranking_promotion_condition/${promotionId}`);
+    }, `deleteRankPromotion(${promotionId})`);
   }
 }
 

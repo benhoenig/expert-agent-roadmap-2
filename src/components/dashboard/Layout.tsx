@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
@@ -88,7 +87,7 @@ export function DashboardLayout() {
         </header>
         
         {/* Main content area */}
-        <main className="flex-1 overflow-x-hidden p-4 lg:p-8 transition-all">
+        <main className="flex-1 overflow-x-hidden px-2 sm:px-4 py-3 transition-all">
           {/* Removed AnimatePresence here to prevent duplicate animations */}
           <motion.div
             key={location.pathname}

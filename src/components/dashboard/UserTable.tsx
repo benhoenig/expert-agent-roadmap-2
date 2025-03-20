@@ -33,7 +33,7 @@ import {
   Loader2 
 } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { UserWithProfiles } from '../../services/userService';
+import { UserWithProfiles } from '../../services/api/userService';
 
 interface UserTableProps {
   users: UserWithProfiles[];
@@ -56,18 +56,9 @@ export function UserTable({
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   
-  // Log props when component receives them
-  useEffect(() => {
-    console.log('UserTable received props - users:', users);
-    console.log('UserTable received props - isLoading:', isLoading);
-  }, [users, isLoading]);
-  
   // Filter users based on search term and filters
   const filteredUsers = useMemo(() => {
-    console.log('Filtering users:', users);
-    
     if (!users || users.length === 0) {
-      console.log('No users to filter');
       return [];
     }
     
@@ -184,8 +175,6 @@ export function UserTable({
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               (() => {
-                console.log('No users found - filteredUsers:', filteredUsers);
-                console.log('Original users array:', users);
                 return (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
@@ -196,7 +185,6 @@ export function UserTable({
               })()
             ) : (
               filteredUsers.map((user) => {
-                console.log('Rendering user:', user);
                 return (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">

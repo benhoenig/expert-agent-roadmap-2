@@ -1,4 +1,3 @@
-
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Target, TrendingUp, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,10 +28,10 @@ export function MentorSidebar({ closeSidebar }: MentorSidebarProps) {
       description: "Your sales dashboard"
     },
     {
-      title: "Goals & Target",
+      title: "Goals & Targets",
       icon: Target,
-      path: "/mentor/goals",
-      description: "Set and track your goals"
+      path: "/mentor/goals-targets",
+      description: "Set and track sales targets"
     },
     {
       title: "All Sales",

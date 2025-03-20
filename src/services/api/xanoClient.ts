@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosError } from "axios";
+import axios, { AxiosRequestConfig, AxiosError, AxiosResponse, Method } from "axios";
 
 // Xano API configuration
 const XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
@@ -123,7 +123,7 @@ export class ApiCache {
   cache: Map<string, CacheItem>;
   defaultTTL: number; // Default time to live in milliseconds
 
-  constructor(defaultTTL = 5 * 60 * 1000) { // Default 5 minutes
+  constructor(defaultTTL = 15 * 60 * 1000) { // Default 15 minutes (increased from 5 minutes)
     this.cache = new Map();
     this.defaultTTL = defaultTTL;
   }
@@ -146,6 +146,10 @@ export class ApiCache {
       data,
       expiry: Date.now() + (ttl || this.defaultTTL)
     });
+  }
+
+  remove(key: string): void {
+    this.cache.delete(key);
   }
 
   invalidate(pattern: string): void {
@@ -173,6 +177,81 @@ export class ApiCache {
 // Initialize the API cache
 export const apiCache = new ApiCache();
 
+// Rate limit management (to prevent too many concurrent requests)
+const rateLimiter = {
+  queue: [] as { resolve: (value: any) => void; reject: (reason?: any) => void; fn: () => Promise<any> }[],
+  running: 0,
+  maxConcurrent: 1, // Reduced from 2 to 1 to be more conservative
+  
+  // Rate limit for batch of requests
+  rateLimit: {
+    count: 0,
+    timestamp: 0,
+    maxRequests: 5, // Reduced from 6 to 5 to stay well under the 10 requests/20s limit
+    resetTime: 20000 // Match exactly to Xano's 20 seconds window
+  },
+  
+  // Add function to queue
+  enqueue: <T>(fn: () => Promise<T>): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      rateLimiter.queue.push({ fn, resolve, reject });
+      rateLimiter.processQueue();
+    });
+  },
+  
+  // Process queue items
+  processQueue: () => {
+    if (rateLimiter.queue.length === 0) return;
+    
+    // Check if we need to reset the rate limit counter
+    const now = Date.now();
+    if (now - rateLimiter.rateLimit.timestamp > rateLimiter.rateLimit.resetTime) {
+      rateLimiter.rateLimit.count = 0;
+      rateLimiter.rateLimit.timestamp = now;
+    }
+    
+    // Check if we can run more requests (both concurrency and rate limits)
+    if (rateLimiter.running < rateLimiter.maxConcurrent && 
+        rateLimiter.rateLimit.count < rateLimiter.rateLimit.maxRequests) {
+      
+      const { fn, resolve, reject } = rateLimiter.queue.shift()!;
+      rateLimiter.running++;
+      rateLimiter.rateLimit.count++;
+      
+      console.log(`[Rate Limiter] Executing request ${rateLimiter.rateLimit.count}/${rateLimiter.rateLimit.maxRequests} in current window`);
+      
+      fn()
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          rateLimiter.running--;
+          setTimeout(() => rateLimiter.processQueue(), 2000); // Increased delay between requests to 2000ms
+        });
+      
+      // Don't try to process another request immediately to avoid bursts
+      if (rateLimiter.queue.length > 0) {
+        setTimeout(() => rateLimiter.processQueue(), 2000); // Increased from 500ms to 2000ms
+      }
+    } else {
+      // If rate limited, wait and try again later
+      const delay = rateLimiter.rateLimit.count >= rateLimiter.rateLimit.maxRequests 
+        ? rateLimiter.rateLimit.resetTime + 1000 // Wait for full reset time plus buffer if rate limited
+        : 2000; // Increased delay to 2000ms
+      
+      console.log(`[Rate Limiter] Rate limit reached (${rateLimiter.rateLimit.count}/${rateLimiter.rateLimit.maxRequests}), waiting ${delay}ms`);
+      setTimeout(() => rateLimiter.processQueue(), delay);
+    }
+  }
+};
+
+/**
+ * Generate a cache key from method, url, and data
+ */
+export function generateCacheKey(method: string, url: string, data: any): string {
+  const dataString = data ? JSON.stringify(data) : '';
+  return `${method}:${url}:${dataString}`;
+}
+
 /**
  * Makes an API request with caching support
  * @param method HTTP method
@@ -182,29 +261,55 @@ export const apiCache = new ApiCache();
  * @returns API response
  */
 export const makeApiRequest = async (
-  method: 'get' | 'post' | 'put' | 'delete' | 'patch',
+  method: Method,
   url: string,
   data?: any,
   options?: {
     useCache?: boolean;
     cacheTTL?: number;
     forceRefresh?: boolean;
+    requiresAuth?: boolean;
   }
 ): Promise<any> => {
   const {
     useCache = true,
-    cacheTTL = 300000, // 5 minutes default
+    cacheTTL = 15 * 60 * 1000, // 15 minutes default (increased from 5 minutes)
     forceRefresh = false,
+    requiresAuth = true,
   } = options || {};
 
-  const cacheKey = `${method}:${url}:${JSON.stringify(data || {})}`;
+  // Check for auth token if endpoint requires authentication
+  if (requiresAuth) {
+    const token = getAuthToken();
+    if (!token) {
+      console.warn(`[API] No authentication token found for request to ${method.toUpperCase()} ${url}`);
+      console.warn('[API] You may need to log in first or check localStorage/sessionStorage');
+      
+      // Optionally, mock the response for development
+      if (process.env.NODE_ENV === 'development') {
+        console.info('[API DEV] Using sample data for development');
+        // Return empty array/object based on what's expected
+        if (url.includes('/sales')) {
+          return [];
+        }
+        return {};
+      }
+    } else {
+      console.log(`[API] Using token for ${method.toUpperCase()} ${url}: ${token.substring(0, 10)}...`);
+    }
+  }
+
+  const cacheKey = generateCacheKey(method, url, data || {});
 
   // Return cached data if available and not forcing refresh
   if (useCache && !forceRefresh && apiCache.get(cacheKey)) {
+    console.log(`[API] Using cached data for ${method.toUpperCase()} ${url}`);
     return apiCache.get(cacheKey);
   }
 
   try {
+    console.log(`[API] Making ${method.toUpperCase()} request to ${url}`, data || '');
+    
     let response;
     const config: AxiosRequestConfig = {
       timeout: 15000, // 15 seconds timeout

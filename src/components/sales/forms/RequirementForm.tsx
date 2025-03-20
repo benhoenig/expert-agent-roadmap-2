@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, PaperclipIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { xanoService } from "@/services/xanoService";
 
 interface RequirementFormProps {
   onCancel: () => void;
@@ -18,8 +19,16 @@ interface RequirementFormProps {
 
 type RequirementType = "Training Attended" | "HOME Academy Video Watched" | "Real Case with Senior";
 
+// Define requirement IDs for each type
+const REQUIREMENT_IDS = {
+  "Training Attended": 1,
+  "HOME Academy Video Watched": 2,
+  "Real Case with Senior": 3
+};
+
 export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [requirementType, setRequirementType] = useState<RequirementType | "">("");
   const [trainingName, setTrainingName] = useState<string>("");
   const [lessonName, setLessonName] = useState<string>("");
@@ -27,6 +36,10 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
   const [caseType, setCaseType] = useState<string>("");
   const [lessonLearned, setLessonLearned] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [weekId, setWeekId] = useState<number | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Demo training names
   const trainingOptions = [
@@ -37,6 +50,55 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
 
   // Case type options
   const caseTypeOptions = ["Owner Visit", "Survey", "Showing"];
+
+  // Fetch user data and current week on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch user data
+        const userData = await xanoService.getUserData();
+        console.log("User data fetched:", userData);
+        
+        if (userData && userData.id) {
+          setUserId(userData.id);
+        } else {
+          console.warn("User data fetched but no ID found:", userData);
+        }
+
+        // Fetch current week
+        try {
+          const currentWeek = await xanoService.getCurrentWeek();
+          console.log("Current week fetched:", currentWeek);
+          if (currentWeek && currentWeek.id) {
+            setWeekId(currentWeek.id);
+          } else {
+            console.warn("Current week fetched but no ID found:", currentWeek);
+            // Set a default week ID of 1
+            setWeekId(1);
+          }
+        } catch (error) {
+          console.error("Error fetching current week:", error);
+          // Set a default week ID of 1
+          setWeekId(1);
+        }
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        toast.error("Failed to load user data. Some features may be limited.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,19 +124,88 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
       toast.error("Please enter what you learned");
       return;
     }
+
+    if (!userId) {
+      toast.error("User data not available. Please try again or contact support.");
+      return;
+    }
+
+    if (!weekId) {
+      toast.error("Week data not available. Please try again or contact support.");
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
-      // This is where we would normally send the data to the API
-      // For now, we'll just simulate a successful submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare the requirement progress data
+      const requirementData: any = {
+        user_id: userId,
+        week_id: weekId,
+        requirement_id: REQUIREMENT_IDS[requirementType as RequirementType],
+        date_added: date instanceof Date ? date.toISOString().split('T')[0] : date,
+        count: 1, // Default count is 1 for requirements
+        lesson_learned: lessonLearned,
+        updated_at: new Date().toISOString(),
+        mentor_edited: 0
+      };
+
+      // Add type-specific fields
+      if (requirementType === "Training Attended") {
+        requirementData.training_name = trainingName;
+      } else if (requirementType === "HOME Academy Video Watched") {
+        requirementData.lesson_name = lessonName;
+      } else if (requirementType === "Real Case with Senior") {
+        requirementData.senior_name = seniorName;
+        requirementData.case_type = caseType;
+      }
+
+      // Add attachment if exists
+      if (file) {
+        requirementData.attachment = file;
+      }
+
+      console.log("Submitting requirement progress:", requirementData);
+
+      // Send the data to the API
+      const result = await xanoService.addRequirementProgress(requirementData);
+      console.log("Requirement progress added successfully. Response:", result);
       
       toast.success("Requirement progress added successfully");
       onSubmit();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting requirement progress:", error);
-      toast.error("Failed to add requirement progress");
+      
+      // Provide more specific error messages based on the error
+      let errorMessage = "Failed to add requirement progress";
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+        
+        if (error.response.status === 500) {
+          errorMessage = "Server error. Please try again later.";
+        } else if (error.response.status === 400) {
+          errorMessage = "Invalid data. Please check your inputs.";
+          
+          // Check for specific error messages in the response
+          if (error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+        } else if (error.response.status === 401 || error.response.status === 403) {
+          errorMessage = "You are not authorized to perform this action.";
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = "No response from server. Please check your internet connection.";
+      } else if (error.message) {
+        // Something happened in setting up the request that triggered an Error
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -85,7 +216,7 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
       {/* Date Selector */}
       <div className="space-y-2">
         <Label htmlFor="date">Date</Label>
-        <Popover>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -102,7 +233,10 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
             <Calendar
               mode="single"
               selected={date}
-              onSelect={setDate}
+              onSelect={(selectedDate) => {
+                setDate(selectedDate);
+                setCalendarOpen(false);
+              }}
               initialFocus
             />
           </PopoverContent>
@@ -139,16 +273,12 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
       {requirementType === "Training Attended" && (
         <div className="space-y-2">
           <Label htmlFor="training-name">Training Name</Label>
-          <Select value={trainingName} onValueChange={setTrainingName}>
-            <SelectTrigger id="training-name">
-              <SelectValue placeholder="Select Training" />
-            </SelectTrigger>
-            <SelectContent>
-              {trainingOptions.map((training) => (
-                <SelectItem key={training} value={training}>{training}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            id="training-name"
+            placeholder="Enter the training name"
+            value={trainingName}
+            onChange={(e) => setTrainingName(e.target.value)}
+          />
         </div>
       )}
       
@@ -205,17 +335,51 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
           />
         </div>
       )}
+
+      {/* File Attachment */}
+      <div className="space-y-2">
+        <Label htmlFor="attachment">Attachment (Optional)</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            id="attachment"
+            type="file"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => document.getElementById("attachment")?.click()}
+            className="flex items-center gap-2"
+          >
+            <PaperclipIcon size={16} />
+            {file ? "Change Attachment" : "Add Attachment"}
+          </Button>
+          {file && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-muted-foreground truncate">
+                {file.name}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Form Actions */}
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || isLoading}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Submitting...
+            </>
+          ) : isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
             </>
           ) : (
             "Submit"

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Database, FileText, LogOut, X, Users } from "lucide-react";
+import { Database, FileText, LogOut, X, Users, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +26,12 @@ export function Sidebar({ closeSidebar }: SidebarProps) {
       icon: Users,
       path: "/dashboard/user-management",
       description: "Manage system users"
+    },
+    {
+      title: "Mentor Assignment",
+      icon: UserPlus,
+      path: "/dashboard/mentor-assignment",
+      description: "Assign sales agents to mentors"
     },
     {
       title: "Master Data",

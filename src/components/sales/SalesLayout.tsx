@@ -84,7 +84,7 @@ export function SalesLayout() {
         </header>
         
         {/* Main content area */}
-        <main className="flex-1 overflow-x-hidden p-4 lg:p-8 transition-all">
+        <main className="flex-1 overflow-x-hidden px-2 sm:px-4 py-3 transition-all">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 20 }}
