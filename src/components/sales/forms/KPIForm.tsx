@@ -92,7 +92,8 @@ export function KPIForm({ onSuccess }: KPIFormProps) {
       await weeklyDataService.submitKpiAction(
         user.salesId,
         kpiId,
-        format(values.date, "yyyy-MM-dd"),
+        // Add one day to compensate for timezone shift
+        format(new Date(values.date.getTime() + 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
         values.count,
         values.remark
       );

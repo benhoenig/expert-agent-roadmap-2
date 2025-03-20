@@ -154,7 +154,9 @@ export function UserForm({
           
           console.log('Original sales data for comparison:', originalSalesData);
           
-          const formattedStartingDate = values.starting_date?.toISOString().split('T')[0] || '';
+          // Add one day to compensate for timezone shift
+          const formattedStartingDate = values.starting_date ? 
+            new Date(values.starting_date.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '';
           
           salesData = {
             user_id: user.id,
@@ -195,7 +197,8 @@ export function UserForm({
           // For new sales profiles, include all fields
           salesData = {
             user_id: user?.id,
-            starting_date: values.starting_date?.toISOString().split('T')[0] || '',
+            starting_date: values.starting_date ? 
+              new Date(values.starting_date.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '',
             generation: values.generation || 1,
             property_type: values.property_type || 'House',
             probation_status: values.probation_status || 'Ongoing',

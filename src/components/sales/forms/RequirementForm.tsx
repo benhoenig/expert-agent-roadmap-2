@@ -143,7 +143,10 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
         user_id: userId,
         week_id: weekId,
         requirement_id: REQUIREMENT_IDS[requirementType as RequirementType],
-        date_added: date instanceof Date ? format(date, "yyyy-MM-dd") : date,
+        date_added: date instanceof Date ? 
+          // Add one day to compensate for timezone shift
+          format(new Date(date.getTime() + 24 * 60 * 60 * 1000), "yyyy-MM-dd") : 
+          date,
         count: 1, // Default count is 1 for requirements
         lesson_learned: lessonLearned,
         updated_at: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss"),
