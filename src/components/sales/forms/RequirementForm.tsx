@@ -143,10 +143,10 @@ export function RequirementForm({ onCancel, onSubmit }: RequirementFormProps) {
         user_id: userId,
         week_id: weekId,
         requirement_id: REQUIREMENT_IDS[requirementType as RequirementType],
-        date_added: date instanceof Date ? date.toISOString().split('T')[0] : date,
+        date_added: date instanceof Date ? format(date, "yyyy-MM-dd") : date,
         count: 1, // Default count is 1 for requirements
         lesson_learned: lessonLearned,
-        updated_at: new Date().toISOString(),
+        updated_at: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss"),
         mentor_edited: 0
       };
 
